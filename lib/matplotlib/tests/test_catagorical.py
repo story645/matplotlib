@@ -5,12 +5,12 @@ but I wanted to start with a catch all place for simplicity's sake
 catagorical dataframe objects 
 """
 
-
 import nose.tools
 from nose.plugins.skip import SkipTest
 
 import numpy as np
 
+from matplotlib.testing.decorators import knownfailureif
 
 import importlib.util
 spec = importlib.util.spec_from_file_location("matplotlib.categorical", "../categorical.py")
@@ -19,6 +19,10 @@ spec.loader.exec_module(cat)
 
 
 
+def checkdep_pandas():
+    return importlib.util.find_spec("pandas") is not None
+
+@knownfailureif(checkdep_pandas())
 def test_factorize():
     index, labels = cat.factorize([1,1,2,2,1,1,4,5,6])
     np.testing.assert_equal(index, np.array([0, 0, 1, 1, 0, 0, 2, 3, 4]))
