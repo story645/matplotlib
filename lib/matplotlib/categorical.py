@@ -8,6 +8,35 @@ import numpy as np
 #factorization of pandas factorize:
 #https://github.com/pydata/pandas/blob/master/pandas/core/algorithms.py#L145
 
+import matplotlib.units as units
+import matplotlib.dates as dates
+
+from matplotlib.ticker import Formatter, AutoLocator, Locator
+from matplotlib.transforms import nonsingular
+
+import pandas as pd
+
+def register():
+    """conversation with pandas dev on what specifically gets
+    registered"""
+    #units.registry[str] = CategoricalConverter()
+    #units.registry[pandas.Categorical] = CategoricalConverter()
+
+class CategoricalConverter(units.ConversionInterface):
+    @staticmethod
+    def convert(value, unit, axis):
+        pass
+
+    @staticmethod
+    def axisinfo(unit, axis):
+        pass
+
+    @staticmethod
+    def default_units(x,axis):
+        """Default unit for categories is none"""
+        return None
+
+
 def factorize(values, sort=False, order=None, na_sentinel=-1, size_hint=None):
     """
     Encode input values as an enumerated type or categorical variable
