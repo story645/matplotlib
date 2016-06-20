@@ -1,20 +1,16 @@
 """
-catch all for categorical functions before they get farmed out to 
-ticker & Pandas.
+catch all for categorical functions
 """
 
 import numpy as np
 
-#factorization of pandas factorize:
-#https://github.com/pydata/pandas/blob/master/pandas/core/algorithms.py#L145
-
 import matplotlib.units as units
+import matplotlib.ticker as ticker
 import matplotlib.dates as dates
 
-from matplotlib.ticker import Formatter, AutoLocator, Locator
-from matplotlib.transforms import nonsingular
-
 import pandas as pd
+from pandas.core.algorithms import _get_data_algo
+from pandas.compat import string_types
 
 def register():
     """conversation with pandas dev on what specifically gets
@@ -22,117 +18,65 @@ def register():
     #units.registry[str] = CategoricalConverter()
     #units.registry[pandas.Categorical] = CategoricalConverter()
 
+#can probably be reimplemented less efficiently without pandas support
+import pandas.hashtable as htable
+from pandas.core.algorithms import _hashtables, _get_data_algo
+import pandas.core.common as com
+
+import six
+
 class CategoricalConverter(units.ConversionInterface):
     @staticmethod
     def convert(value, unit, axis):
-        pass
+        if isinstance(value, six.string_types):
+            return 0
 
+        vals = np.asarray(value, dtype='str')
+        uniq = np.unique(vals)
+        print (uniq)
+
+        if 'nan' in uniq:
+            vals[vals=='nan'] = - 1
+            uniq = uniq[uniq!='nan']
+
+        if '-inf' in uniq:
+            vals[vals=='-inf'] = uniq.shape[0]-1
+            uniq = uniq[uniq!='-inf']
+    
+        if 'inf' in uniq:
+            vals[vals=='inf'] = uniq.shape[0] - 1
+            uniq = uniq[uniq!='inf']
+        
+        vmap = dict(zip(uniq,list(range(uniq.shape[0])))) 
+        print(vmap)
+        for u in uniq:
+            vals[vals==u] = vmap[u]
+    
+        return vals.astype('int')
+
+        
     @staticmethod
     def axisinfo(unit, axis):
-        pass
+        majloc = CategoricalFormatter()
+        majfmt = CategoricalLocator()
+        return units.AxisInfo(majloc=majloc, majfmt=majfmt, label=None)
 
     @staticmethod
     def default_units(x,axis):
         """Default unit for categories is none"""
+        """but if x is a dictionary then the default is a key"""
         return None
 
-
-def factorize(values, sort=False, order=None, na_sentinel=-1, size_hint=None):
-    """
-    Encode input values as an enumerated type or categorical variable
-    Parameters
-    ----------
-    values : ndarray (1-d)
-        Sequence
-    sort : boolean, default False
-        Sort by values
-    na_sentinel : int, default -1
-        Value to mark "not found"
-    size_hint : hint to the hashtable sizer
-    Returns
-    -------
-    labels : the indexer to the original array
-    uniques : ndarray (1-d) or Index
-        the unique values. Index is returned when passed values is Index or
-        Series
-    note: an array of Periods will ignore sort as it returns an always sorted
-    PeriodIndex
-    """
-    from pandas import Index, Series, DatetimeIndex
-    import pandas.core.common as com
-    from pandas.core.algorithms import _get_data_algo, _hashtables
-    vals = np.asarray(values)
-
-    # localize to UTC
-    is_datetimetz = com.is_datetimetz(values)
-    if is_datetimetz:
-        values = DatetimeIndex(values)
-        vals = values.tz_localize(None)
-
-    is_datetime = com.is_datetime64_dtype(vals)
-    is_timedelta = com.is_timedelta64_dtype(vals)
-    (hash_klass, vec_klass), vals = _get_data_algo(vals, _hashtables)
-
-    table = hash_klass(size_hint or len(vals))
-    uniques = vec_klass()
-    labels = table.get_labels(vals, uniques, 0, na_sentinel, True)
-
-    labels = com._ensure_platform_int(labels)
-
-    uniques = uniques.to_array()
-
-    if sort and len(uniques) > 0:
-        try:
-            sorter = uniques.argsort()
-        except:
-            # unorderable in py3 if mixed str/int
-            t = hash_klass(len(uniques))
-            t.map_locations(com._ensure_object(uniques))
-
-            # order ints before strings
-            ordered = np.concatenate([
-                np.sort(np.array([e for i, e in enumerate(uniques) if f(e)],
-                                 dtype=object)) for f in
-                [lambda x: not isinstance(x, string_types),
-                 lambda x: isinstance(x, string_types)]])
-            sorter = com._ensure_platform_int(t.lookup(
-                com._ensure_object(ordered)))
-
-        reverse_indexer = np.empty(len(sorter), dtype=np.int_)
-        reverse_indexer.put(sorter, np.arange(len(sorter)))
-
-        mask = labels < 0
-        labels = reverse_indexer.take(labels)
-        np.putmask(labels, mask, -1)
-
-        uniques = uniques.take(sorter)
-
-    if is_datetimetz:
-
-        # reset tz
-        uniques = DatetimeIndex(uniques.astype('M8[ns]')).tz_localize(
-            values.tz)
-    elif is_datetime:
-        uniques = uniques.astype('M8[ns]')
-    elif is_timedelta:
-        uniques = uniques.astype('m8[ns]')
-    if isinstance(values, Index):
-        uniques = values._shallow_copy(uniques, name=None)
-    elif isinstance(values, Series):
-        uniques = Index(uniques)
-    return labels, uniques
-
-
-
-"""these should probably  be acting on lists of strings...
-and support nested catagories at some point...
-should NOT be limited to pandas if possible
+"""Staring as thin wrapper on existing locaters/formatters
+probably supposed to eventually get fleshed out to support nesting
+/heirarchy
 """
-def CategoricalLocator():
-    """probably a wrapper on index formatter"""
+class CategoricalLocator(ticker.FixedLocator):
+    """Starting with fixed because all catagories should be shown
+    """
     pass
 
-def CategoricalFormatter():
+class CategoricalFormatter(ticker.FixedFormatter):
     """Probably a wrapper on one of the string formatters"""
     pass
 
