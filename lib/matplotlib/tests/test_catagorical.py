@@ -5,6 +5,8 @@ but I wanted to start with a catch all place for simplicity's sake
 catagorical dataframe objects 
 """
 
+import unittest
+
 try:
     # mock in python 3.3+
     from unittest.mock import MagicMock
@@ -24,7 +26,8 @@ import matplotlib.units as munits
 
 #scaffolding, will be taken out 
 import importlib.util
-spec = importlib.util.spec_from_file_location("matplotlib.categorical", "../categorical.py")
+spec = importlib.util.spec_from_file_location("matplotlib.categorical", 
+                                              "../categorical.py")
 cat = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cat)
 
@@ -34,27 +37,56 @@ import pandas.util.testing as tm
 def checkdep_pandas():
     return importlib.util.find_spec("pandas") is None
 
+#@knownfailureif(checkdep_pandas())
+class TestCategoricalConverter(unittest.TestCase):
+    """
+    Based on the pandas conversion and factorization tests:
+    
+    ref: /pandas/tseries/tests/test_converter.py
+         /pandas/tests/test_algos.py:TestFactorize
+    """
 
-@knownfailureif(checkdep_pandas())
-class TestCategoricalConverter(tm.TestCase):
-#ref: https://github.com/pydata/pandas/blob/master/pandas/tseries/tests/test_converter.py
     def setUp(self):
         self.cc = cat.CategoricalConverter()
         class Axis(object):
-            self.axis = Axis()
+            pass
+        self.axis = Axis()
     
     def test_convert_accepts_unicode(self):
-        c1 = self.cc.convert(["a","b","c"], None, self.axis)
-        #unicode version
+        c1 = self.cc.convert("a", None, None)
+        c2 = self.cc.convert(u"a", None, None)
+        self.assertEqual(c1, c2)
+        
+        c1 = self.cc.convert(["a"], None, None)
+        c2 = self.cc.convert([u"a"], None, None)
+        self.assertEqual(c1, c2)
+        
+    def test_conversion_single(self):
+        act = self.cc.convert("a", None, None)
+        exp = 0
+        self.assertEqual(act, exp)
 
-    def test_conversion(self):
-        #conversion only works on one axis at a time
+    def test_conversion_basic(self):
+        cats = ['a', 'b', 'b', 'a', 'a', 'c', 'c','c']
+        exp = [0, 1, 1, 0, 0, 2, 2, 2]
+        act = self.cc.convert(cats, None, None)
+        np.testing.assert_array_equal(act, exp)
+
+           
+    def test_conversion_mixed(self):
+        # doc example reshaping.rst
+        cats = ['A', 'A', np.nan, 'B', -np.inf, 3.14, np.inf]       
+        exp = [1, 1, -1, 2, 4, 0, 3]
+        act = self.cc.convert(cats, None, None)
+        np.testing.assert_array_equal(act, exp)
+
+    def test_axisinfo(self):
+        """inspect that labeling and positions are where expected"""
         pass
-    
-    
 
 
 
+@SkipTest
 class TestPlotting(object):
     """Use mock to check that plot calls the conversion 
     interface that will eventually live in pandas"""
@@ -75,25 +107,18 @@ class TestPlotting(object):
     
     def setup(self):
         self.df = df = pd.DataFrame({"A":["a","b","c","a"],
-                                     "B":["d","d", "e","g"]})
-        
+                                     "B":["d","d", "e","g"]})       
 
     def teardown(self):
         pass
     def test_plot(self):
         fig, ax = plt.subplots(1,1)
         l, = plt.plot(self.df)
-        nose.tools.assert(cc.convert.called)
-        nose.tools.assert(cc.axisinfo.called)
-        nose.tools.assert(cc.default_units.called)
+        nose.tools.assertEqual(cc.convert.called)
+        nose.tools.assertEqual(cc.axisinfo.called)
+        nose.tools.assertEqual(cc.default_units.called)
         
         
-
-@knownfailureif(checkdep_pandas())
-def test_factorize():
-    index, labels = cat.factorize([1,1,2,2,1,1,4,5,6])
-    np.testing.assert_equal(index, np.array([0, 0, 1, 1, 0, 0, 2, 3, 4]))
-    np.testing.assert_equal(labels, np.array([1, 2, 4, 5, 6]))
 
 @SkipTest
 def test_CategoricalLocator():
