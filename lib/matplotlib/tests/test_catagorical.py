@@ -16,13 +16,14 @@ except ImportError:
 import nose.tools
 from nose.plugins.skip import SkipTest
 
-
+import six
 import numpy as np
 
 import matplotlib
 matplotlib.use('Agg') #backend framework error
 from matplotlib.testing.decorators import knownfailureif
 import matplotlib.units as munits
+import matplotlib.pyplot as plt
 
 #scaffolding, will be taken out 
 import importlib.util
@@ -32,12 +33,11 @@ cat = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cat)
 
 import pandas as pd
-import pandas.util.testing as tm
+
 
 def checkdep_pandas():
     return importlib.util.find_spec("pandas") is None
 
-#@knownfailureif(checkdep_pandas())
 class TestCategoricalConverter(unittest.TestCase):
     """
     Based on the pandas conversion and factorization tests:
@@ -84,39 +84,43 @@ class TestCategoricalConverter(unittest.TestCase):
         """inspect that labeling and positions are where expected"""
         pass
 
+    def test_default_units(self):
+        """At the moment, no nesting so only unit is base level"""
+        self.assertEqual(self.cc.default_units(["a"], None), None)
 
 
-@SkipTest
-class TestPlotting(object):
+class TestPlot(unittest.TestCase):
     """Use mock to check that plot calls the conversion 
     interface that will eventually live in pandas"""
     @classmethod
-    def setup_class(cls):
-        cc = munits.CategoricalInterface()
+    def setupClass(cls):
+        cls.cc = munits.ConversionInterface()
         
         def convert(value, unit, axis):
-            #figure out what actually needs to be
-            #pulled out
-            return cat.convert(value, unit, axis)
+            return cat.CategoricalConverter.convert(value, unit, axis)
         
-        cc.convert = MagicMock(side_effect=convert)
-        cc.axisinfo = MagicMock(return_value=None)
-        cc.default_units - MagicMock(return_value=None)
+        cls.cc.convert = MagicMock(side_effect=convert)
+        cls.cc.axisinfo = MagicMock(return_value=None)
+        cls.cc.default_units = MagicMock(return_value=None)
 
-        munits.registry[pd.DataFrame] = cc
-    
-    def setup(self):
-        self.df = df = pd.DataFrame({"A":["a","b","c","a"],
-                                     "B":["d","d", "e","g"]})       
+        if six.PY2:
+            munits.registry[basestring] = cls.cc
+        elif six.PY3:
+            munits.registry[str] = cls.cc
 
-    def teardown(self):
+    def setUp(self):
+        self.x = ["a","b","c","a"]
+        self.y = ["d","d", "e","g"]
+       
+    def tearDown(self):
         pass
+
     def test_plot(self):
         fig, ax = plt.subplots(1,1)
-        l, = plt.plot(self.df)
-        nose.tools.assertEqual(cc.convert.called)
-        nose.tools.assertEqual(cc.axisinfo.called)
-        nose.tools.assertEqual(cc.default_units.called)
+        l, = plt.plot(self.x, self.y)
+        self.assertTrue(TestPlot.cc.convert.called)
+        self.assertTrue(TestPlot.cc.axisinfo.called)
+        self.assertTrue(TestPlot.cc.default_units.called)
         
         
 
