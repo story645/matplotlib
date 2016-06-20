@@ -1,29 +1,23 @@
 """
 catch all for categorical functions
 """
-
+import six
 import numpy as np
 
 import matplotlib.units as units
 import matplotlib.ticker as ticker
 import matplotlib.dates as dates
 
-import pandas as pd
-from pandas.core.algorithms import _get_data_algo
-from pandas.compat import string_types
 
 def register():
     """conversation with pandas dev on what specifically gets
     registered"""
-    #units.registry[str] = CategoricalConverter()
+    if six.PY3:
+        units.registry[str] = CategoricalConverter()
+    elif six.PY2:
+        units.registry[basestring] = CategoricalConverter()
+
     #units.registry[pandas.Categorical] = CategoricalConverter()
-
-#can probably be reimplemented less efficiently without pandas support
-import pandas.hashtable as htable
-from pandas.core.algorithms import _hashtables, _get_data_algo
-import pandas.core.common as com
-
-import six
 
 class CategoricalConverter(units.ConversionInterface):
     @staticmethod
@@ -33,7 +27,6 @@ class CategoricalConverter(units.ConversionInterface):
 
         vals = np.asarray(value, dtype='str')
         uniq = np.unique(vals)
-        print (uniq)
 
         if 'nan' in uniq:
             vals[vals=='nan'] = - 1
@@ -48,7 +41,7 @@ class CategoricalConverter(units.ConversionInterface):
             uniq = uniq[uniq!='inf']
         
         vmap = dict(zip(uniq,list(range(uniq.shape[0])))) 
-        print(vmap)
+
         for u in uniq:
             vals[vals==u] = vmap[u]
     
