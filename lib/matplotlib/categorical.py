@@ -17,7 +17,8 @@ def register():
     elif six.PY2:
         units.registry[basestring] = CategoricalConverter()
 
-    #units.registry[pandas.Categorical] = CategoricalConverter()
+    # units.registry[pandas.Categorical] = CategoricalConverter()
+
 
 class CategoricalConverter(units.ConversionInterface):
     @staticmethod
@@ -29,25 +30,24 @@ class CategoricalConverter(units.ConversionInterface):
         uniq = np.unique(vals)
 
         if 'nan' in uniq:
-            vals[vals=='nan'] = - 1
-            uniq = uniq[uniq!='nan']
+            vals[vals == 'nan'] = -1
+            uniq = uniq[uniq != 'nan']
 
         if '-inf' in uniq:
-            vals[vals=='-inf'] = uniq.shape[0]-1
-            uniq = uniq[uniq!='-inf']
-    
+            vals[vals == '-inf'] = uniq.shape[0] - 1
+            uniq = uniq[uniq != '-inf']
+
         if 'inf' in uniq:
-            vals[vals=='inf'] = uniq.shape[0] - 1
-            uniq = uniq[uniq!='inf']
-        
-        vmap = dict(zip(uniq,list(range(uniq.shape[0])))) 
+            vals[vals == 'inf'] = uniq.shape[0] - 1
+            uniq = uniq[uniq != 'inf']
+
+        vmap = dict(zip(uniq, list(range(uniq.shape[0]))))
 
         for u in uniq:
-            vals[vals==u] = vmap[u]
-    
+            vals[vals == u] = vmap[u]
+
         return vals.astype('int')
 
-        
     @staticmethod
     def axisinfo(unit, axis):
         majloc = CategoricalFormatter()
@@ -55,23 +55,18 @@ class CategoricalConverter(units.ConversionInterface):
         return units.AxisInfo(majloc=majloc, majfmt=majfmt, label=None)
 
     @staticmethod
-    def default_units(x,axis):
+    def default_units(x, axis):
         """Default unit for categories is none"""
         """but if x is a dictionary then the default is a key"""
         return None
 
-"""Staring as thin wrapper on existing locaters/formatters
-probably supposed to eventually get fleshed out to support nesting
-/heirarchy
-"""
+
 class CategoricalLocator(ticker.FixedLocator):
     """Starting with fixed because all catagories should be shown
     """
     pass
 
+
 class CategoricalFormatter(ticker.FixedFormatter):
     """Probably a wrapper on one of the string formatters"""
     pass
-
-
-
