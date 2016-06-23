@@ -24,50 +24,68 @@ class CategoricalConverter(units.ConversionInterface):
 
     @staticmethod
     def convert(value, unit, axis):
+        # account for conversion call stack variance
+        if 'unit_data' not in axis.__dict__:
+            axis.unit_data = map_categories(value)
+
         if isinstance(value, six.string_types):
             return 0
-        
+
         vals = np.asarray(value, dtype='str')
-        for label, loc  in axis.unit_data.items():
+        for label, loc  in axis.unit_data:
             vals[vals == label] = loc
 
         return vals.astype('int')
 
     @staticmethod
     def axisinfo(unit, axis):
-        seq, locs = zip(*axis.unit_data.items())
-        majloc = CategoricalFormatter(locs)
-        majfmt = CategoricalLocator(seq)
+        seq, locs = zip(*axis.unit_data)
+        majloc = CategoricalLocator(locs)
+        majfmt = CategoricalFormatter(seq)
         return units.AxisInfo(majloc=majloc, majfmt=majfmt, label=None)
 
     @staticmethod
     def default_units(data, axis):
-        """map is built here because the conversion call stack is:
-        default_units->axis info->convert
-        """
-
-        # factor this stuff out so I can test it
-        vals = np.asarray(data, dtype='str')
-        uniq = np.unique(vals)
-
-        # pandas factorize convention
-        if 'nan' in uniq:
-            vals[vals == 'nan'] = -1
-            uniq = uniq[uniq != 'nan']
-
-        for inf in ['-inf', 'inf']:
-            if inf in uniq:
-                vals[vals == inf] = uniq.shape[0] - 1
-                uniq = uniq[uniq != inf]
-
-        index = list(range(uniq.shape[0]))
-        axis.unit_data = OrderedDict(zip(uniq, index))
-
+        # the conversion call stack is often: 
+        # default_units->axis_info->convert
+        if 'unit_data' not in axis.__dict__:
+            axis.unit_data = map_categories(data) 
         return None
 
-
+   
+def map_categories(data):
+    """Create mapping between unique categorical
+    values and numerical identifier"""
+    vals = np.asarray(data, dtype='str')
+    uniq = np.unique(vals)
+    
+    # pandas factorize convention
+    dmap = []
+    if 'nan' in uniq:
+        vals[vals == 'nan'] = -1
+        uniq = uniq[uniq != 'nan']
+        dmap.append(('nan', - 1))
+        
+    inf_map = []    
+    for inf in ['inf','-inf']:
+        if inf in uniq:
+            vals[vals == inf] = uniq.shape[0] - 1
+            uniq = uniq[uniq != inf]
+            inf_map.append((inf, uniq.shape[0]))
+        
+    # categorical value map 
+    category_map = zip(uniq, list(range(uniq.shape[0])))
+        
+    dmap.extend(category_map)
+    dmap.extend(inf_map[::-1])
+        
+    return dmap
+    
+    
 class CategoricalLocator(ticker.FixedLocator):
     def __init__(self, locs):
+        self.vmin = None
+        self.vmax = None
         super(CategoricalLocator, self).__init__(locs)
 
 

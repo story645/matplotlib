@@ -44,33 +44,34 @@ class TestCategoricalConverter(unittest.TestCase):
         self.axis = FakeAxis()
 
     def test_convert_accepts_unicode(self):
-        self.axis.unit_data = {'a':0}
+        self.axis.unit_data = [('a', 0), ('b', 1)]
         c1 = self.cc.convert("a", None, self.axis)
         c2 = self.cc.convert(u"a", None, self.axis)
         self.assertEqual(c1, c2)
-
-        c1 = self.cc.convert(["a"], None, self.axis)
-        c2 = self.cc.convert([u"a"], None, self.axis)
-        self.assertEqual(c1, c2)
-
-    def test_conversion_single(self):
+        # single values always set at 0
+        c1 = self.cc.convert(["a", "b"], None, self.axis)
+        c2 = self.cc.convert([u"a", u"b"], None, self.axis)
+        np.testing.assert_array_equal(c1, c2)
+        
+    def test_convert_single(self):
         act = self.cc.convert("a", None, self.axis)
         exp = 0
         self.assertEqual(act, exp)
 
-    def test_conversion_basic(self):
-        cats = ['a', 'b', 'b', 'a', 'a', 'c', 'c', 'c']
+    def test_convert_basic(self):
+        data = ['a', 'b', 'b', 'a', 'a', 'c', 'c', 'c']
         exp = [0, 1, 1, 0, 0, 2, 2, 2]
-        self.axis.unit_data = {'a':0, 'b':1, 'c':2}
-        act = self.cc.convert(cats, None, self.axis)
+        self.axis.unit_data = [('a', 0), ('b', 1), ('c', 2)]
+        act = self.cc.convert(data, None, self.axis)
         np.testing.assert_array_equal(act, exp)
 
-    def test_conversion_mixed(self):
-        cats = ['A', 'A', np.nan, 'B', -np.inf, 3.14, np.inf]
+    def test_convert_mixed(self):
+        data = ['A', 'A', np.nan, 'B', -np.inf, 3.14, np.inf]
         exp = [1, 1, -1, 2, 3, 0, 4]
-        self.axis.unit_data = {'nan':-1, '3.14':0, 'A':1, 'B':2, 
-                               '-inf':3, 'inf':4}
-        act = self.cc.convert(cats, None, self.axis)
+        self.axis.unit_data = [('nan', -1), ('3.14', 0), 
+                               ('A', 1), ('B', 2), 
+                               ('-inf', 3), ('inf', 4)]
+        act = self.cc.convert(data, None, self.axis)
         np.testing.assert_array_equal(act, exp)
 
     def test_axisinfo(self):
@@ -80,6 +81,27 @@ class TestCategoricalConverter(unittest.TestCase):
     def test_default_units(self):
         """At the moment, no nesting so only unit is base level"""
         self.assertEqual(self.cc.default_units(["a"], self.axis), None)
+
+class TestMapCategories(unittest.TestCase):
+
+    def test_map_data(self):
+        act = cat.map_categories("a")
+        exp = [('a', 0)]
+        self.assertListEqual(act, exp)
+        
+    def test_map_data_basic(self):
+        data = ['a', 'b', 'b', 'a', 'a', 'c', 'c', 'c']
+        exp = [('a', 0), ('b', 1), ('c', 2)]
+        act = cat.map_categories(data)
+        self.assertListEqual(act, exp)
+
+    def test_map_data_mixed(self):
+        data = ['A', 'A', np.nan, 'B', -np.inf, 3.14, np.inf]
+        exp = [('nan', -1), ('3.14', 0), ('A', 1), 
+               ('B', 2), ('-inf', 3), ('inf', 4)]
+
+        act = cat.map_categories(data)
+        self.assertListEqual(act, exp)
 
 
 class testCategoricalLocator(unittest.TestCase):
@@ -108,7 +130,7 @@ class TestPlot(unittest.TestCase):
         cls.cc = munits.ConversionInterface()
 
         def default_units(data, axis):
-            axis.unit_data = {'a': 0, 'b':1, 'c':2}
+            axis.unit_data = [('a', 0), ('b', 1), ('c', 2)]
             return None
 
         cls.cc.convert = MagicMock(return_value = np.array([0, 1, 2, 0]))
