@@ -6,9 +6,10 @@ from collections import OrderedDict
 import six
 import numpy as np
 
+
 import matplotlib.units as units
 import matplotlib.ticker as ticker
-import matplotlib.dates as dates
+import matplotlib.transforms as mtransforms
 
 
 def register():
@@ -23,26 +24,31 @@ def register():
 class CategoricalConverter(units.ConversionInterface):
 
     @staticmethod
-    def convert(value, unit, axis):
-        # account for conversion call stack variance
-        if 'unit_data' not in axis.__dict__:
-            axis.unit_data = map_categories(value)
-
+    def convert(value, unit, axis):      
+                    
         if isinstance(value, six.string_types):
             return 0
-
-        vals = np.asarray(value, dtype='str')
+        vals = np.asarray(value, dtype = 'str') 
+         
         for label, loc  in axis.unit_data:
             vals[vals == label] = loc
 
-        return vals.astype('int')
+        return vals.astype('float')
 
     @staticmethod
     def axisinfo(unit, axis):
         seq, locs = zip(*axis.unit_data)
+        vmin, vmax = min(locs), max(locs)
+        
+        axis.set_view_interval(vmin, vmax)
+
         majloc = CategoricalLocator(locs)
         majfmt = CategoricalFormatter(seq)
-        return units.AxisInfo(majloc=majloc, majfmt=majfmt, label=None)
+        default_limits = (vmin, vmax)
+
+        # also supports minloc & minfmt
+        return units.AxisInfo(majloc=majloc, majfmt=majfmt, 
+                              default_limits=default_limits)
 
     @staticmethod
     def default_units(data, axis):
@@ -84,10 +90,8 @@ def map_categories(data):
     
 class CategoricalLocator(ticker.FixedLocator):
     def __init__(self, locs):
-        self.vmin = None
-        self.vmax = None
-        super(CategoricalLocator, self).__init__(locs)
-
+        super(CategoricalLocator, self).__init__(locs, None)    
+        
 
 class CategoricalFormatter(ticker.FixedFormatter):
     def __init__(self, seq):
