@@ -15,10 +15,11 @@ import numpy as np
 import pandas as pd
 
 import matplotlib
-from matplotlib.testing.decorators import cleanup
+matplotlib.use('agg')
 import matplotlib.units as munits
 import matplotlib.text as mtext
 import matplotlib.pyplot as plt
+from matplotlib.testing.decorators import cleanup
 
 import importlib.util
 spec = importlib.util.spec_from_file_location("matplotlib.categorical",
@@ -146,11 +147,12 @@ class TestPlot(unittest.TestCase):
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
         ax.plot(self.d)
+        plt.draw()
 
         np.testing.assert_array_equal(ax.get_yticks(), self.dticks)
-        # agg/OSX bug?
-        # self.assertListEqual(TestPlot.lt(ax.get_yticklabels()),
-        #                      self.dlabels)
+
+        self.assertListEqual(TestPlot.lt(ax.get_yticklabels()),
+                             self.dlabels)
         self.assertListEqual(ax.yaxis.unit_data, self.dunit_data)
 
     @cleanup
@@ -159,8 +161,11 @@ class TestPlot(unittest.TestCase):
         ax = fig.add_subplot(1, 1, 1)
         ax.set_ylabel("Categories")
         ax.plot(self.dm)
+        plt.draw()
 
         np.testing.assert_array_equal(ax.get_yticks(), self.dmticks)
+        self.assertListEqual(TestPlot.lt(ax.get_yticklabels()),
+                             self.dmlabels)
         self.assertListEqual(ax.yaxis.unit_data, self.dmunit_data)
 
     @cleanup
@@ -169,11 +174,16 @@ class TestPlot(unittest.TestCase):
         ax = fig.add_subplot(1, 1, 1)
         ax.set_ylabel("Categories")
         ax.plot(self.dm, self.d)
+        plt.draw()
 
         np.testing.assert_array_equal(ax.get_xticks(), self.dmticks)
+        self.assertListEqual(TestPlot.lt(ax.get_xticklabels()),
+                             self.dmlabels)
         self.assertListEqual(ax.xaxis.unit_data, self.dmunit_data)
 
         np.testing.assert_array_equal(ax.get_yticks(), self.dticks)
+        self.assertListEqual(TestPlot.lt(ax.get_yticklabels()),
+                             self.dlabels)
         self.assertListEqual(ax.yaxis.unit_data, self.dunit_data)
 
     @cleanup
@@ -182,9 +192,14 @@ class TestPlot(unittest.TestCase):
         ax = fig.add_subplot(1, 1, 1)
         ax.set_ylabel("Categories")
         ax.scatter(self.dm, self.d)
+        plt.draw()
 
         np.testing.assert_array_equal(ax.get_xticks(), self.dmticks)
+        self.assertListEqual(TestPlot.lt(ax.get_xticklabels()),
+                             self.dmlabels)
         self.assertListEqual(ax.xaxis.unit_data, self.dmunit_data)
 
         np.testing.assert_array_equal(ax.get_yticks(), self.dticks)
+        self.assertListEqual(TestPlot.lt(ax.get_yticklabels()),
+                             self.dlabels)
         self.assertListEqual(ax.yaxis.unit_data, self.dunit_data)
