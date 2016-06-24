@@ -1,31 +1,16 @@
 """Catch all for categorical functions
 """
+
 import unittest
 
-try:
-    from unittest.mock import MagicMock
-except ImportError:
-    from mock import MagicMock
-
-import nose.tools
-from nose.plugins.skip import SkipTest
-
-import six
 import numpy as np
-import pandas as pd
 
 import matplotlib
 matplotlib.use('agg')
-import matplotlib.units as munits
-import matplotlib.text as mtext
 import matplotlib.pyplot as plt
 from matplotlib.testing.decorators import cleanup
 
-import importlib.util
-spec = importlib.util.spec_from_file_location("matplotlib.categorical",
-                                              "../categorical.py")
-cat = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(cat)
+import matplotlib.categorical as cat
 
 
 class FakeAxis(object):
@@ -128,7 +113,6 @@ class TestCategoricalFormatter(unittest.TestCase):
 class TestPlot(unittest.TestCase):
     @classmethod
     def setupClass(cls):
-        cat.register()
         cls.lt = lambda tl: [l.get_text() for l in tl]
 
     def setUp(self):

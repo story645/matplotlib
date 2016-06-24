@@ -22,6 +22,7 @@ import matplotlib.collections as mcoll
 import matplotlib.colors as mcolors
 import matplotlib.contour as mcontour
 import matplotlib.dates as _  # <-registers a date unit converter
+import matplotlib.categorical as _ # <-registers categorical unit converter
 from matplotlib import docstring
 import matplotlib.image as mimage
 import matplotlib.legend as mlegend
