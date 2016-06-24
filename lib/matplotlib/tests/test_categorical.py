@@ -15,9 +15,9 @@ import numpy as np
 import pandas as pd
 
 import matplotlib
-matplotlib.use('agg')
-import matplotlib
+from matplotlib.testing.decorators import cleanup
 import matplotlib.units as munits
+import matplotlib.text as mtext
 import matplotlib.pyplot as plt
 
 import importlib.util
@@ -25,6 +25,7 @@ spec = importlib.util.spec_from_file_location("matplotlib.categorical",
                                               "../categorical.py")
 cat = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cat)
+
 
 class FakeAxis(object):
     def __init__(self):
@@ -52,7 +53,7 @@ class TestCategoricalConverter(unittest.TestCase):
         c1 = self.cc.convert(["a", "b"], None, self.axis)
         c2 = self.cc.convert([u"a", u"b"], None, self.axis)
         np.testing.assert_array_equal(c1, c2)
-        
+
     def test_convert_single(self):
         act = self.cc.convert("a", None, self.axis)
         exp = 0
@@ -68,8 +69,8 @@ class TestCategoricalConverter(unittest.TestCase):
     def test_convert_mixed(self):
         data = ['A', 'A', np.nan, 'B', -np.inf, 3.14, np.inf]
         exp = [1, 1, -1, 2, 3, 0, 4]
-        self.axis.unit_data = [('nan', -1), ('3.14', 0), 
-                               ('A', 1), ('B', 2), 
+        self.axis.unit_data = [('nan', -1), ('3.14', 0),
+                               ('A', 1), ('B', 2),
                                ('-inf', 3), ('inf', 4)]
         act = self.cc.convert(data, None, self.axis)
         np.testing.assert_array_equal(act, exp)
@@ -82,13 +83,13 @@ class TestCategoricalConverter(unittest.TestCase):
         """At the moment, no nesting so only unit is base level"""
         self.assertEqual(self.cc.default_units(["a"], self.axis), None)
 
-class TestMapCategories(unittest.TestCase):
 
+class TestMapCategories(unittest.TestCase):
     def test_map_data(self):
         act = cat.map_categories("a")
         exp = [('a', 0)]
         self.assertListEqual(act, exp)
-        
+
     def test_map_data_basic(self):
         data = ['a', 'b', 'b', 'a', 'a', 'c', 'c', 'c']
         exp = [('a', 0), ('b', 1), ('c', 2)]
@@ -97,62 +98,93 @@ class TestMapCategories(unittest.TestCase):
 
     def test_map_data_mixed(self):
         data = ['A', 'A', np.nan, 'B', -np.inf, 3.14, np.inf]
-        exp = [('nan', -1), ('3.14', 0), ('A', 1), 
+        exp = [('nan', -1), ('3.14', 0), ('A', 1),
                ('B', 2), ('-inf', 3), ('inf', 4)]
 
         act = cat.map_categories(data)
         self.assertListEqual(act, exp)
 
 
-class testCategoricalLocator(unittest.TestCase):
+class TestCategoricalLocator(unittest.TestCase):
     def setUp(self):
         self.locs = list(range(10))
 
     def test_CategoricalLocator(self):
         ticks = cat.CategoricalLocator(self.locs)
-        np.testing.assert_equal(ticks.tick_values(None, None), 
+        np.testing.assert_equal(ticks.tick_values(None, None),
                                 self.locs)
 
 
-class testCategoricalFormatter(unittest.TestCase):
+class TestCategoricalFormatter(unittest.TestCase):
     def setUp(self):
         self.seq = ["hello", "world", "hi"]
-    
+
     def test_CategoricalFormatter(self):
         labels = cat.CategoricalFormatter(self.seq)
-        self.assertEqual(labels('a',1), "world")
+        self.assertEqual(labels('a', 1), "world")
+
 
 class TestPlot(unittest.TestCase):
-    """Use mock to check that plot calls the conversion
-    interface that will eventually live in pandas"""
     @classmethod
     def setupClass(cls):
-        cls.cc = munits.ConversionInterface()
-
-        def default_units(data, axis):
-            axis.unit_data = [('a', 0.), ('b',1.), 
-                              ('c', 2.)]
-            return None
-
-        cls.cc.convert = MagicMock(return_value = np.array([0., 1., 2., 0.]))
-        cls.cc.axisinfo = MagicMock(return_value=None)
-        cls.cc.default_units = MagicMock(side_effect=default_units)
-
-        if six.PY2:
-            munits.registry[basestring] = cls.cc
-        elif six.PY3:
-            munits.registry[str] = cls.cc
+        cat.register()
+        cls.lt = lambda tl: [l.get_text() for l in tl]
 
     def setUp(self):
-        self.x = ["a", "b", "c", "a"]
-        self.y = [2, 3, 4, 5]
+        self.d = ['a', 'b', 'c', 'a']
+        self.dticks = [0, 1, 2]
+        self.dlabels = ['a', 'b', 'c']
+        self.dunit_data = [('a', 0), ('b', 1), ('c', 2)]
 
-    def tearDown(self):
-        pass
+        self.dm = ['here', np.nan, 'here', 'there']
+        self.dmticks = [-1, 0, 1]
+        self.dmlabels = ['nan', 'here', 'there']
+        self.dmunit_data = [('nan', -1), ('here', 0), ('there', 1)]
 
-    def test_plot(self):
-        fig, ax = plt.subplots(1, 1)
-        l, = plt.plot(self.x, self.y)
-        self.assertTrue(TestPlot.cc.convert.called)
-        self.assertTrue(TestPlot.cc.axisinfo.called)
-        self.assertTrue(TestPlot.cc.default_units.called)
+    @cleanup
+    def test_plot_1d(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot(self.d)
+
+        np.testing.assert_array_equal(ax.get_yticks(), self.dticks)
+        # agg/OSX bug?
+        # self.assertListEqual(TestPlot.lt(ax.get_yticklabels()),
+        #                      self.dlabels)
+        self.assertListEqual(ax.yaxis.unit_data, self.dunit_data)
+
+    @cleanup
+    def test_plot_1d_missing(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_ylabel("Categories")
+        ax.plot(self.dm)
+
+        np.testing.assert_array_equal(ax.get_yticks(), self.dmticks)
+        self.assertListEqual(ax.yaxis.unit_data, self.dmunit_data)
+
+    @cleanup
+    def test_plot_2d(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_ylabel("Categories")
+        ax.plot(self.dm, self.d)
+
+        np.testing.assert_array_equal(ax.get_xticks(), self.dmticks)
+        self.assertListEqual(ax.xaxis.unit_data, self.dmunit_data)
+
+        np.testing.assert_array_equal(ax.get_yticks(), self.dticks)
+        self.assertListEqual(ax.yaxis.unit_data, self.dunit_data)
+
+    @cleanup
+    def test_scatter_2d(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_ylabel("Categories")
+        ax.scatter(self.dm, self.d)
+
+        np.testing.assert_array_equal(ax.get_xticks(), self.dmticks)
+        self.assertListEqual(ax.xaxis.unit_data, self.dmunit_data)
+
+        np.testing.assert_array_equal(ax.get_yticks(), self.dticks)
+        self.assertListEqual(ax.yaxis.unit_data, self.dunit_data)
