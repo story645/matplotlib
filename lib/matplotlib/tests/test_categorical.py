@@ -147,7 +147,7 @@ class TestPlot(unittest.TestCase):
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
         ax.plot(self.d)
-        plt.draw()
+        fig.canvas.draw()
 
         np.testing.assert_array_equal(ax.get_yticks(), self.dticks)
 
@@ -161,7 +161,7 @@ class TestPlot(unittest.TestCase):
         ax = fig.add_subplot(1, 1, 1)
         ax.set_ylabel("Categories")
         ax.plot(self.dm)
-        plt.draw()
+        fig.canvas.draw()
 
         np.testing.assert_array_equal(ax.get_yticks(), self.dmticks)
         self.assertListEqual(TestPlot.lt(ax.get_yticklabels()),
@@ -174,7 +174,7 @@ class TestPlot(unittest.TestCase):
         ax = fig.add_subplot(1, 1, 1)
         ax.set_ylabel("Categories")
         ax.plot(self.dm, self.d)
-        plt.draw()
+        fig.canvas.draw()
 
         np.testing.assert_array_equal(ax.get_xticks(), self.dmticks)
         self.assertListEqual(TestPlot.lt(ax.get_xticklabels()),
@@ -192,7 +192,7 @@ class TestPlot(unittest.TestCase):
         ax = fig.add_subplot(1, 1, 1)
         ax.set_ylabel("Categories")
         ax.scatter(self.dm, self.d)
-        plt.draw()
+        fig.canvas.draw()
 
         np.testing.assert_array_equal(ax.get_xticks(), self.dmticks)
         self.assertListEqual(TestPlot.lt(ax.get_xticklabels()),
