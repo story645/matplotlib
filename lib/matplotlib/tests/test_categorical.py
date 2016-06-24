@@ -130,10 +130,11 @@ class TestPlot(unittest.TestCase):
         cls.cc = munits.ConversionInterface()
 
         def default_units(data, axis):
-            axis.unit_data = [('a', 0), ('b', 1), ('c', 2)]
+            axis.unit_data = [('a', 0.), ('b',1.), 
+                              ('c', 2.)]
             return None
 
-        cls.cc.convert = MagicMock(return_value = np.array([0, 1, 2, 0]))
+        cls.cc.convert = MagicMock(return_value = np.array([0., 1., 2., 0.]))
         cls.cc.axisinfo = MagicMock(return_value=None)
         cls.cc.default_units = MagicMock(side_effect=default_units)
 
