@@ -1,24 +1,11 @@
 """
 catch all for categorical functions
 """
-from collections import OrderedDict
-
 import six
 import numpy as np
 
-
 import matplotlib.units as units
 import matplotlib.ticker as ticker
-import matplotlib.transforms as mtransforms
-
-
-def register():
-    """conversation with pandas dev on what specifically gets
-    registered"""
-    if six.PY3:
-        units.registry[str] = CategoricalConverter()
-    elif six.PY2:
-        units.registry[basestring] = CategoricalConverter()
 
 
 class CategoricalConverter(units.ConversionInterface):
@@ -90,3 +77,10 @@ class CategoricalLocator(ticker.FixedLocator):
 class CategoricalFormatter(ticker.FixedFormatter):
     def __init__(self, seq):
         super(CategoricalFormatter, self).__init__(seq)
+
+
+# Connects the convertor to matplotlib
+if six.PY3:
+    units.registry[str] = CategoricalConverter()
+elif six.PY2:
+    units.registry[basestring] = CategoricalConverter()
