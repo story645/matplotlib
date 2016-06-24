@@ -666,7 +666,6 @@ class Axis(artist.Artist):
         # Initialize here for testing; later add API
         self._major_tick_kw = dict()
         self._minor_tick_kw = dict()
-        # self._unit_data = dict()
 
         self.cla()
         self._set_scale('linear')
