@@ -22,7 +22,6 @@ def register():
 
 
 class CategoricalConverter(units.ConversionInterface):
-
     @staticmethod
     def convert(value, unit, axis):      
                     
@@ -38,21 +37,13 @@ class CategoricalConverter(units.ConversionInterface):
     @staticmethod
     def axisinfo(unit, axis):
         seq, locs = zip(*axis.unit_data)
-        vmin, vmax = min(locs), max(locs)
-        
-        axis.set_view_interval(vmin, vmax)
-
         majloc = CategoricalLocator(locs)
         majfmt = CategoricalFormatter(seq)
-        default_limits = (vmin, vmax)
-
-        # also supports minloc & minfmt
-        return units.AxisInfo(majloc=majloc, majfmt=majfmt, 
-                              default_limits=default_limits)
+        return units.AxisInfo(majloc=majloc, majfmt=majfmt)
 
     @staticmethod
     def default_units(data, axis):
-        # the conversion call stack is often: 
+        # the conversion call stack is: 
         # default_units->axis_info->convert
         if 'unit_data' not in axis.__dict__:
             axis.unit_data = map_categories(data) 
