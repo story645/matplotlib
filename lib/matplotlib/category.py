@@ -21,10 +21,8 @@ class StrCategoryConverter(units.ConversionInterface):
         if isinstance(value, six.string_types):
             return dict(axis.unit_data)[value]
 
-        vals = np.asarray(value, dtype='str')
-        for label, loc in axis.unit_data:
-            vals[vals == label] = loc
-        return vals.astype('float')
+        vmap = dict(axis.unit_data)
+        return [vmap[str(v)] for v in value]
 
     @staticmethod
     def axisinfo(unit, axis):
