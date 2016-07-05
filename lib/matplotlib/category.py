@@ -5,6 +5,9 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import six
+from collections import Iterable
+
+import numpy as np
 
 import matplotlib.units as units
 import matplotlib.ticker as ticker
@@ -16,12 +19,13 @@ class StrCategoryConverter(units.ConversionInterface):
         """Uses axis.unit_data map to encode
         data as integers
         """
-
-        if isinstance(value, six.string_types):
-            return dict(axis.unit_data)[value]
-
         vmap = dict(axis.unit_data)
-        return [vmap[str(v)] for v in value]
+
+        if isinstance(value, Iterable):
+            vals = np.array([vmap[str(v)] for v in value])
+        else:
+            vals = vmap[value]
+        return vals
 
     @staticmethod
     def axisinfo(unit, axis):
@@ -62,10 +66,13 @@ def map_categories(data, old_map=[], sort=True):
     # code typical missing data in the negative range because
     # everything else will always have positive encoding
     # question able if it even makes sense
-    spdict = {'nan': -1, 'inf': -2, '-inf': -3}
+    spdict = {'nan': -1.0, 'inf': -2.0, '-inf': -3.0}
 
     # cast all data to str
-    strdata = [str(d) for d in data]
+    if isinstance(data, Iterable):
+        strdata = [str(d) for d in data]
+    else:
+        strdata = str(data)
 
     uniq = set(strdata)
 
@@ -89,7 +96,7 @@ def map_categories(data, old_map=[], sort=True):
         new_labs = list(new_labs)
         new_labs.sort()
 
-    new_locs = range(svalue, svalue + len(new_labs))
+    new_locs = np.arange(svalue, svalue + len(new_labs))
     category_map.extend(list(zip(new_labs, new_locs)))
     return category_map
 
@@ -105,10 +112,11 @@ class StrCategoryFormatter(ticker.FixedFormatter):
 
 
 # Connects the convertor to matplotlib
-units.registry[bytearray] = StrCategoryConverter()
-units.registry[str] = StrCategoryConverter()
 
 if six.PY3:
-    units.registry[bytes] = StrCategoryConverter()
+    units.registry[str] = StrCategoryConverter()  # text/unicode
+    units.registry[bytes] = StrCategoryConverter()  # binary
 elif six.PY2:
-    units.registry[unicode] = StrCategoryConverter()
+    units.registry[basestring] = StrCategoryConverter()  # txt
+    units.registry[unicode] = StrCategoryConverter()  # unicode
+    units.registry[str] = StrCategoryConverter()  # bytes

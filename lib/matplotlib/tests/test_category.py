@@ -42,7 +42,7 @@ class TestStrCategoryConverter(unittest.TestCase):
     def test_convert_single(self):
         self.axis.unit_data = [('a', 0)]
         act = self.cc.convert("a", None, self.axis)
-        exp = 0
+        exp = [0]
         self.assertEqual(act, exp)
 
     def test_convert_basic(self):
@@ -54,10 +54,10 @@ class TestStrCategoryConverter(unittest.TestCase):
 
     def test_convert_mixed(self):
         data = ['A', 'A', np.nan, 'B', -np.inf, 3.14, np.inf]
-        exp = [1, 1, -1, 2, 3, 0, 4]
+        exp = [1, 1, -1, 2, 100, 0, 200]
         self.axis.unit_data = [('nan', -1), ('3.14', 0),
                                ('A', 1), ('B', 2),
-                               ('-inf', 3), ('inf', 4)]
+                               ('-inf', 100), ('inf', 200)]
         act = self.cc.convert(data, None, self.axis)
         np.testing.assert_array_equal(act, exp)
 
@@ -119,10 +119,11 @@ class TestStrCategoryFormatter(unittest.TestCase):
         self.assertEqual(labels('a', 1), "world")
 
 
+def lt(tl):
+    return [l.get_text() for l in tl]
+
+
 class TestPlot(unittest.TestCase):
-    @classmethod
-    def setupClass(cls):
-        cls.lt = lambda tl: [l.get_text() for l in tl]
 
     def setUp(self):
         self.d = ['a', 'b', 'c', 'a']
@@ -143,7 +144,7 @@ class TestPlot(unittest.TestCase):
         fig.canvas.draw()
 
         np.testing.assert_array_equal(ax.get_yticks(), self.dticks)
-        self.assertListEqual(TestPlot.lt(ax.get_yticklabels()),
+        self.assertListEqual(lt(ax.get_yticklabels()),
                              self.dlabels)
         self.assertListEqual(ax.yaxis.unit_data, self.dunit_data)
 
@@ -156,7 +157,7 @@ class TestPlot(unittest.TestCase):
         fig.canvas.draw()
 
         np.testing.assert_array_equal(ax.get_yticks(), self.dmticks)
-        self.assertListEqual(TestPlot.lt(ax.get_yticklabels()),
+        self.assertListEqual(lt(ax.get_yticklabels()),
                              self.dmlabels)
         self.assertListEqual(ax.yaxis.unit_data, self.dmunit_data)
 
@@ -169,12 +170,12 @@ class TestPlot(unittest.TestCase):
         fig.canvas.draw()
 
         np.testing.assert_array_equal(ax.get_xticks(), self.dmticks)
-        self.assertListEqual(TestPlot.lt(ax.get_xticklabels()),
+        self.assertListEqual(lt(ax.get_xticklabels()),
                              self.dmlabels)
         self.assertListEqual(ax.xaxis.unit_data, self.dmunit_data)
 
         np.testing.assert_array_equal(ax.get_yticks(), self.dticks)
-        self.assertListEqual(TestPlot.lt(ax.get_yticklabels()),
+        self.assertListEqual(lt(ax.get_yticklabels()),
                              self.dlabels)
         self.assertListEqual(ax.yaxis.unit_data, self.dunit_data)
 
@@ -187,12 +188,12 @@ class TestPlot(unittest.TestCase):
         fig.canvas.draw()
 
         np.testing.assert_array_equal(ax.get_xticks(), self.dmticks)
-        self.assertListEqual(TestPlot.lt(ax.get_xticklabels()),
+        self.assertListEqual(lt(ax.get_xticklabels()),
                              self.dmlabels)
         self.assertListEqual(ax.xaxis.unit_data, self.dmunit_data)
 
         np.testing.assert_array_equal(ax.get_yticks(), self.dticks)
-        self.assertListEqual(TestPlot.lt(ax.get_yticklabels()),
+        self.assertListEqual(lt(ax.get_yticklabels()),
                              self.dlabels)
         self.assertListEqual(ax.yaxis.unit_data, self.dunit_data)
 
@@ -212,4 +213,4 @@ class TestPlot(unittest.TestCase):
         self.assertListEqual(ax.yaxis.unit_data,
                              list(zip(labels_new, ticks_new)))
         np.testing.assert_array_equal(ax.get_yticks(), ticks_new)
-        self.assertListEqual(TestPlot.lt(ax.get_yticklabels()), labels_new)
+        self.assertListEqual(lt(ax.get_yticklabels()), labels_new)
