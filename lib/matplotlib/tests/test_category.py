@@ -196,7 +196,7 @@ class TestPlot(unittest.TestCase):
                              self.dlabels)
         self.assertListEqual(ax.yaxis.unit_data, self.dunit_data)
 
-    @unittest.expectedFailure
+    # @unittest.expectedFailure
     @cleanup
     def test_plot_update(self):
         fig = plt.figure()
