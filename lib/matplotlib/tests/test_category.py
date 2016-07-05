@@ -7,7 +7,7 @@ import unittest
 import numpy as np
 
 import matplotlib.pyplot as plt
-from matplotlib.testing.decorators import cleanup, knownfailureif
+from matplotlib.testing.decorators import cleanup
 import matplotlib.category as cat
 
 
@@ -196,7 +196,7 @@ class TestPlot(unittest.TestCase):
                              self.dlabels)
         self.assertListEqual(ax.yaxis.unit_data, self.dunit_data)
 
-    # @unittest.expectedFailure
+    @unittest.expectedFailure
     @cleanup
     def test_plot_update(self):
         fig = plt.figure()

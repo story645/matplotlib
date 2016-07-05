@@ -69,7 +69,7 @@ def map_categories(data, old_map=[], sort=True):
 
     uniq = set(strdata)
 
-    category_map = old_map.copy()
+    category_map = old_map[:]
 
     if old_map:
         olabs, okeys = zip(*old_map)
