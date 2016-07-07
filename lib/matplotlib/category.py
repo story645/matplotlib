@@ -16,7 +16,7 @@ import matplotlib.ticker as ticker
 #  pure hack for numpy 1.6 support
 from distutils.version import LooseVersion
 
-NP_NEW = (LooseVersion(np.version.version) > LooseVersion('1.10'))
+NP_NEW = (LooseVersion(np.version.version) >= LooseVersion('1.7'))
 
 
 def to_array(data, maxlen=100):
