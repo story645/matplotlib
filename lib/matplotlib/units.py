@@ -5,11 +5,7 @@ how to convert themselves to arrays.  It also supports classes with
 units and units conversion.  Use cases include converters for custom
 objects, e.g., a list of datetime objects, as well as for objects that
 are unit aware.  We don't assume any particular units implementation;
-<<<<<<< HEAD
 rather a units implementation must provide the register with the Registry
-=======
-rather a units implementation must provide the register with the Registry 
->>>>>>> a91e19bfec60e8e1fcd2c2d82372fceafed9ae18
 converter dictionary and a ConversionInterface.  For example,
 here is a complete implementation which supports plotting with native
 datetime objects::
@@ -47,8 +43,6 @@ datetime objects::
 """
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-
-import six
 
 from matplotlib.cbook import iterable, is_numlike
 import numpy as np
@@ -130,9 +124,9 @@ class Registry(dict):
 
         if not len(self):
             return None  # nothing registered
-        #DISABLED idx = id(x)
-        #DISABLED cached = self._cached.get(idx)
-        #DISABLED if cached is not None: return cached
+        # DISABLED idx = id(x)
+        # DISABLED cached = self._cached.get(idx)
+        # DISABLED if cached is not None: return cached
 
         converter = None
         classx = getattr(x, '__class__', None)
@@ -170,7 +164,7 @@ class Registry(dict):
                     converter = self.get_converter(thisx)
                     return converter
 
-        #DISABLED self._cached[idx] = converter
+        # DISABLED self._cached[idx] = converter
         return converter
 
 

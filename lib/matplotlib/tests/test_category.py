@@ -1,5 +1,5 @@
-"""Catch all for categorical functions
-"""
+# -*- coding: utf-8 -*-
+"""Catch all for categorical functions"""
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 import unittest
@@ -17,8 +17,7 @@ class FakeAxis(object):
 
 
 class TestStrCategoryConverter(unittest.TestCase):
-    """
-    Based on the pandas conversion and factorization tests:
+    """Based on the pandas conversion and factorization tests:
 
     ref: /pandas/tseries/tests/test_converter.py
          /pandas/tests/test_algos.py:TestFactorize
@@ -29,12 +28,11 @@ class TestStrCategoryConverter(unittest.TestCase):
         self.axis = FakeAxis()
 
     def test_convert_accepts_unicode(self):
-        # possibly not needed in PY3
         self.axis.unit_data = [('a', 0), ('b', 1)]
         c1 = self.cc.convert("a", None, self.axis)
         c2 = self.cc.convert(u"a", None, self.axis)
         self.assertEqual(c1, c2)
-        # single values always set at 0
+
         c1 = self.cc.convert(["a", "b"], None, self.axis)
         c2 = self.cc.convert([u"a", u"b"], None, self.axis)
         np.testing.assert_array_equal(c1, c2)
@@ -42,7 +40,7 @@ class TestStrCategoryConverter(unittest.TestCase):
     def test_convert_single(self):
         self.axis.unit_data = [('a', 0)]
         act = self.cc.convert("a", None, self.axis)
-        exp = [0]
+        exp = 0.0
         self.assertEqual(act, exp)
 
     def test_convert_basic(self):
@@ -104,7 +102,7 @@ class TestStrCategoryLocator(unittest.TestCase):
     def setUp(self):
         self.locs = list(range(10))
 
-    def test_CategoricalLocator(self):
+    def test_StrCategoryLocator(self):
         ticks = cat.StrCategoryLocator(self.locs)
         np.testing.assert_equal(ticks.tick_values(None, None),
                                 self.locs)
@@ -114,7 +112,7 @@ class TestStrCategoryFormatter(unittest.TestCase):
     def setUp(self):
         self.seq = ["hello", "world", "hi"]
 
-    def test_CategoricalFormatter(self):
+    def test_StrCategoryFormatter(self):
         labels = cat.StrCategoryFormatter(self.seq)
         self.assertEqual(labels('a', 1), "world")
 
@@ -135,6 +133,21 @@ class TestPlot(unittest.TestCase):
         self.dmticks = [-1, 0, 1]
         self.dmlabels = ['nan', 'here', 'there']
         self.dmunit_data = [('nan', -1), ('here', 0), ('there', 1)]
+
+    @cleanup
+    def test_plot_unicode(self):
+        # needs image test -  works but
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        words = ['Здравствуйте', 'привет']
+        locs = [0.0, 1.0]
+        ax.plot(words)
+        fig.canvas.draw()
+
+        self.assertListEqual(ax.yaxis.unit_data,
+                             list(zip(words, locs)))
+        np.testing.assert_array_equal(ax.get_yticks(), locs)
+        self.assertListEqual(lt(ax.get_yticklabels()), words)
 
     @cleanup
     def test_plot_1d(self):
@@ -197,7 +210,7 @@ class TestPlot(unittest.TestCase):
                              self.dlabels)
         self.assertListEqual(ax.yaxis.unit_data, self.dunit_data)
 
-    @unittest.expectedFailure
+    @unittest.SkipTest
     @cleanup
     def test_plot_update(self):
         fig = plt.figure()
