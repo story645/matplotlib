@@ -42,8 +42,8 @@ class TestMapCategories(unittest.TestCase):
         self.assertListEqual(act, exp)
 
     def test_map_data(self):
-        act = cat.map_categories("a")
-        exp = [('a', 0)]
+        act = cat.map_categories("hello world")
+        exp = [("hello world", 0)]
         self.assertListEqual(act, exp)
 
     def test_map_data_basic(self):
@@ -86,20 +86,16 @@ class TestStrCategoryConverter(unittest.TestCase):
         self.cc = cat.StrCategoryConverter()
         self.axis = FakeAxis()
 
-    def test_convert_accepts_unicode(self):
-        self.axis.unit_data = [('a', 0), ('b', 1)]
-        c1 = self.cc.convert("a", None, self.axis)
-        c2 = self.cc.convert(u"a", None, self.axis)
-        self.assertEqual(c1, c2)
-
-        c1 = self.cc.convert(["a", "b"], None, self.axis)
-        c2 = self.cc.convert([u"a", u"b"], None, self.axis)
-        np.testing.assert_array_equal(c1, c2)
+    def test_convert_unicode(self):
+        self.axis.unit_data = [("Здравствуйте мир", 42)]
+        act = self.cc.convert("Здравствуйте мир", None, self.axis)
+        exp = 42
+        self.assertEqual(act, exp)
 
     def test_convert_single(self):
-        self.axis.unit_data = [('a', 0)]
-        act = self.cc.convert("a", None, self.axis)
-        exp = 0.0
+        self.axis.unit_data = [("hello world", 42)]
+        act = self.cc.convert("hello world", None, self.axis)
+        exp = 42
         self.assertEqual(act, exp)
 
     def test_convert_basic(self):
