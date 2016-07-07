@@ -5,7 +5,6 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import six
-from collections import Iterable
 
 import numpy as np
 
@@ -17,15 +16,19 @@ class StrCategoryConverter(units.ConversionInterface):
     @staticmethod
     def convert(value, unit, axis):
         """Uses axis.unit_data map to encode
-        data as integers
+        data as floats
         """
         vmap = dict(axis.unit_data)
 
-        if isinstance(value, Iterable):
-            vals = np.array([vmap[str(v)] for v in value])
-        else:
-            vals = vmap[value]
-        return vals
+        if isinstance(value, six.string_types):
+            return vmap[value]
+
+        #will likely be replaced by cbook call
+        vals = np.asarray(value, dtype='unicode')
+        for lab, loc in axis.unit_data:
+            vals[vals == lab] = loc
+
+        return vals.astype('float')
 
     @staticmethod
     def axisinfo(unit, axis):
@@ -42,7 +45,7 @@ class StrCategoryConverter(units.ConversionInterface):
         return None
 
 
-def map_categories(data, old_map=[], sort=True):
+def map_categories(data, old_map=None):
     """Create mapping between unique categorical
     values and numerical identifier.
 
@@ -68,35 +71,26 @@ def map_categories(data, old_map=[], sort=True):
     # question able if it even makes sense
     spdict = {'nan': -1.0, 'inf': -2.0, '-inf': -3.0}
 
-    # cast all data to str
-    if isinstance(data, Iterable):
-        strdata = [str(d) for d in data]
-    else:
-        strdata = str(data)
-
-    uniq = set(strdata)
-
-    category_map = old_map[:]
+    # will update this post cbook/dict support
+    strdata = np.array(data, dtype='unicode')
+    uniq = np.unique(strdata)
 
     if old_map:
         olabs, okeys = zip(*old_map)
-        olabs, okeys = set(olabs), set(okeys)
         svalue = max(okeys) + 1
     else:
-        olabs, okeys = set(), set()
+        old_map, olabs, okeys = [], [], []
         svalue = 0
 
-    new_labs = (uniq - olabs)
+    category_map = old_map[:]
 
-    missing = (new_labs & set(spdict.keys()))
+    new_labs = np.setdiff1d(uniq, olabs)
+    missing = np.intersect1d(new_labs, list(spdict.keys()))
+
     category_map.extend([(m, spdict[m]) for m in missing])
+    new_labs = np.setdiff1d(new_labs, missing)
 
-    new_labs = (new_labs - missing)
-    if sort:
-        new_labs = list(new_labs)
-        new_labs.sort()
-
-    new_locs = np.arange(svalue, svalue + len(new_labs))
+    new_locs = np.arange(svalue, svalue + len(new_labs), dtype='float')
     category_map.extend(list(zip(new_labs, new_locs)))
     return category_map
 
@@ -110,13 +104,7 @@ class StrCategoryFormatter(ticker.FixedFormatter):
     def __init__(self, seq):
         super(StrCategoryFormatter, self).__init__(seq)
 
-
 # Connects the convertor to matplotlib
-
-if six.PY3:
-    units.registry[str] = StrCategoryConverter()  # text/unicode
-    units.registry[bytes] = StrCategoryConverter()  # binary
-elif six.PY2:
-    units.registry[basestring] = StrCategoryConverter()  # txt
-    units.registry[unicode] = StrCategoryConverter()  # unicode
-    units.registry[str] = StrCategoryConverter()  # bytes
+units.registry[str] = StrCategoryConverter()
+units.registry[bytes] = StrCategoryConverter()
+units.registry[six.text_type] = StrCategoryConverter()
