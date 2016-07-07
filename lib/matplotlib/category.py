@@ -1,3 +1,4 @@
+# -*- coding: utf-8 OA-*-za
 """
 catch all for categorical functions
 """
@@ -12,6 +13,23 @@ import matplotlib.units as units
 import matplotlib.ticker as ticker
 
 
+#  pure hack for numpy 1.6 support
+from distutils.version import LooseVersion
+
+NP_NEW = (LooseVersion(np.version.version) > LooseVersion('1.10'))
+
+
+def to_array(data, maxlen=100):
+    if NP_NEW:
+        return np.array(data, dtype=np.unicode)
+    try:
+        vals = np.array(data, dtype=('|S', maxlen))
+    except UnicodeEncodeError:
+        # pure hack
+        vals = np.array([convert_to_string(d) for d in data])
+    return vals
+
+
 class StrCategoryConverter(units.ConversionInterface):
     @staticmethod
     def convert(value, unit, axis):
@@ -23,8 +41,7 @@ class StrCategoryConverter(units.ConversionInterface):
         if isinstance(value, six.string_types):
             return vmap[value]
 
-        #will likely be replaced by cbook call
-        vals = np.asarray(value, dtype='unicode')
+        vals = to_array(value)
         for lab, loc in axis.unit_data:
             vals[vals == lab] = loc
 
@@ -43,6 +60,35 @@ class StrCategoryConverter(units.ConversionInterface):
         # default_units->axis_info->convert
         axis.unit_data = map_categories(data, axis.unit_data)
         return None
+
+
+class StrCategoryLocator(ticker.FixedLocator):
+    def __init__(self, locs):
+        super(StrCategoryLocator, self).__init__(locs, None)
+
+
+class StrCategoryFormatter(ticker.FixedFormatter):
+    def __init__(self, seq):
+        super(StrCategoryFormatter, self).__init__(seq)
+
+
+def convert_to_string(value):
+    """Helper function for numpy 1.6, can be replaced with
+    np.array(...,dtype=unicode) for all later versions of numpy"""
+
+    if isinstance(value, six.string_types):
+        return value
+    if np.isfinite(value):
+        value = np.asarray(value, dtype=str)[np.newaxis][0]
+    elif np.isnan(value):
+        value = 'nan'
+    elif np.isposinf(value):
+        value = 'inf'
+    elif np.isneginf(value):
+        value = '-inf'
+    else:
+        raise ValueError("Unconvertable {}".format(value))
+    return value
 
 
 def map_categories(data, old_map=None):
@@ -71,8 +117,11 @@ def map_categories(data, old_map=None):
     # question able if it even makes sense
     spdict = {'nan': -1.0, 'inf': -2.0, '-inf': -3.0}
 
+    if isinstance(data, six.string_types):
+        data = [data]
+
     # will update this post cbook/dict support
-    strdata = np.array(data, dtype='unicode')
+    strdata = to_array(data)
     uniq = np.unique(strdata)
 
     if old_map:
@@ -84,25 +133,17 @@ def map_categories(data, old_map=None):
 
     category_map = old_map[:]
 
-    new_labs = np.setdiff1d(uniq, olabs)
-    missing = np.intersect1d(new_labs, list(spdict.keys()))
+    new_labs = [u for u in uniq if u not in olabs]
+    missing = [nl for nl in new_labs if nl in spdict.keys()]
 
     category_map.extend([(m, spdict[m]) for m in missing])
-    new_labs = np.setdiff1d(new_labs, missing)
+
+    new_labs = [nl for nl in new_labs if nl not in missing]
 
     new_locs = np.arange(svalue, svalue + len(new_labs), dtype='float')
     category_map.extend(list(zip(new_labs, new_locs)))
     return category_map
 
-
-class StrCategoryLocator(ticker.FixedLocator):
-    def __init__(self, locs):
-        super(StrCategoryLocator, self).__init__(locs, None)
-
-
-class StrCategoryFormatter(ticker.FixedFormatter):
-    def __init__(self, seq):
-        super(StrCategoryFormatter, self).__init__(seq)
 
 # Connects the convertor to matplotlib
 units.registry[str] = StrCategoryConverter()
