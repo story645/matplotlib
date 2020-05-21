@@ -282,7 +282,7 @@ however, nbagg does not work in Jupyter Lab.
 GUIs + Jupyter
 ~~~~~~~~~~~~~~
 
-You can also use one of the non-ipympl GUI backends in a Jupyter Notebook. 
+You can also use one of the non-``ipympl`` GUI backends in a Jupyter Notebook. 
 If you are running your Jupyter kernel locally, the GUI window will spawn on 
 your desktop adjacent to your web browser. If you run your notebook on a remote server, 
 the kernel will try to open the GUI window on the remote computer. Unless you have 
