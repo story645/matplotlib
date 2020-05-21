@@ -147,7 +147,7 @@ If in interactive mode:
 - figures will automatically redraw when elements are changed
 - `pyplot.show` displays the figures and immediately returns to the prompt
 
-Not in interactive mode:
+If not in interactive mode:
 
 - newly created figures and changes to figures are not displayed until 
 `.pyplot.show` is called again or `.pyplot.pause` exits
