@@ -141,7 +141,7 @@ Interactive mode controls:
 - whether changes to artists automatically trigger re-drawing existing figures
 - when `.pyplot.show` exits: immediately, or after all of the figures have been closed if given no arguments
 
-Interactive mode:
+If in interactive mode:
 
 - newly created figures will be displayed immediately
 - figures will automatically redraw when elements are changed
