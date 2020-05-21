@@ -107,7 +107,7 @@ If you wish to re-enable interactive "live" modification of the plot:
 
 In recent versions of ``Matplotlib`` and ``IPython``, it is
 sufficient to import `matplotlib.pyplot` and call `.pyplot.ion`. 
-Using the ``%`` magic is guaranteed to work in all versions of ``Matplotlib`` and ``IPython``.
+Using the ``%`` magic is guaranteed to work in all versions of Matplotlib and IPython.
 
 
 .. highlight:: python
