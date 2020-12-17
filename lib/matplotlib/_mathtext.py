@@ -3,6 +3,7 @@ Implementation details for :mod:`.mathtext`.
 """
 
 from collections import namedtuple
+import enum
 import functools
 from io import StringIO
 import logging
@@ -17,10 +18,9 @@ from pyparsing import (
     ParseResults, QuotedString, Regex, StringEnd, Suppress, ZeroOrMore)
 
 import matplotlib as mpl
-from . import cbook
+from . import _api, cbook
 from ._mathtext_data import (
-    latex_to_bakoma, latex_to_cmex, latex_to_standard, stix_virtual_fonts,
-    tex2uni)
+    latex_to_bakoma, latex_to_standard, stix_virtual_fonts, tex2uni)
 from .afm import AFM
 from .font_manager import FontProperties, findfont, get_font
 from .ft2font import KERNING_DEFAULT
@@ -81,17 +81,17 @@ class Fonts:
         """
         Parameters
         ----------
-        default_font_prop: `~.font_manager.FontProperties`
+        default_font_prop : `~.font_manager.FontProperties`
             The default non-math font, or the base font for Unicode (generic)
             font rendering.
-        mathtext_backend: `MathtextBackend` subclass
+        mathtext_backend : `MathtextBackend` subclass
             Backend to which rendering is actually delegated.
         """
         self.default_font_prop = default_font_prop
         self.mathtext_backend = mathtext_backend
         self.used_characters = {}
 
-    @cbook.deprecated("3.4")
+    @_api.deprecated("3.4")
     def destroy(self):
         """
         Fix any cyclical references before the object is about
@@ -234,7 +234,7 @@ class TruetypeFonts(Fonts):
         self._fonts['default'] = default_font
         self._fonts['regular'] = default_font
 
-    @cbook.deprecated("3.4")
+    @_api.deprecated("3.4")
     def destroy(self):
         self.glyphd = None
         super().destroy()
@@ -451,7 +451,7 @@ class UnicodeFonts(TruetypeFonts):
     This class will "fallback" on the Bakoma fonts when a required
     symbol can not be found in the font.
     """
-    use_cmex = True
+    use_cmex = True  # Unused; delete once mathtext becomes private.
 
     def __init__(self, *args, **kwargs):
         # This must come first so the backend's owner is set correctly
@@ -496,22 +496,13 @@ class UnicodeFonts(TruetypeFonts):
         return fontname, uniindex
 
     def _get_glyph(self, fontname, font_class, sym, fontsize, math=True):
-        found_symbol = False
-
-        if self.use_cmex:
-            uniindex = latex_to_cmex.get(sym)
-            if uniindex is not None:
-                fontname = 'ex'
-                found_symbol = True
-
-        if not found_symbol:
-            try:
-                uniindex = get_unicode_index(sym, math)
-                found_symbol = True
-            except ValueError:
-                uniindex = ord('?')
-                _log.warning(
-                    "No TeX to unicode mapping for {!a}.".format(sym))
+        try:
+            uniindex = get_unicode_index(sym, math)
+            found_symbol = True
+        except ValueError:
+            uniindex = ord('?')
+            found_symbol = False
+            _log.warning("No TeX to unicode mapping for {!a}.".format(sym))
 
         fontname, uniindex = self._map_virtual_font(
             fontname, font_class, uniindex)
@@ -573,7 +564,7 @@ class UnicodeFonts(TruetypeFonts):
 
 
 class DejaVuFonts(UnicodeFonts):
-    use_cmex = False
+    use_cmex = False  # Unused; delete once mathtext becomes private.
 
     def __init__(self, *args, **kwargs):
         # This must come first so the backend's owner is set correctly
@@ -676,7 +667,7 @@ class StixFonts(UnicodeFonts):
         4: 'STIXSizeFourSym',
         5: 'STIXSizeFiveSym',
     }
-    use_cmex = False
+    use_cmex = False  # Unused; delete once mathtext becomes private.
     cm_fallback = False
     _sans = False
 
@@ -804,10 +795,7 @@ class StandardPsFonts(Fonts):
         self.fonts['default'] = default_font
         self.fonts['regular'] = default_font
 
-    @cbook.deprecated("3.4")
-    @property
-    def pswriter(self):
-        return StringIO()
+    pswriter = cbook.deprecated("3.4")(property(lambda self: StringIO()))
 
     def _get_font(self, font):
         if font in self.fontmap:
@@ -1561,10 +1549,7 @@ class Glue(Node):
     it's easier to stick to what TeX does.)
     """
 
-    @cbook.deprecated("3.3")
-    @property
-    def glue_subtype(self):
-        return "normal"
+    glue_subtype = cbook.deprecated("3.3")(property(lambda self: "normal"))
 
     @cbook._delete_parameter("3.3", "copy")
     def __init__(self, glue_type, copy=False):
@@ -1592,43 +1577,43 @@ class Glue(Node):
 # Some convenient ways to get common kinds of glue
 
 
-@cbook.deprecated("3.3", alternative="Glue('fil')")
+@_api.deprecated("3.3", alternative="Glue('fil')")
 class Fil(Glue):
     def __init__(self):
         super().__init__('fil')
 
 
-@cbook.deprecated("3.3", alternative="Glue('fill')")
+@_api.deprecated("3.3", alternative="Glue('fill')")
 class Fill(Glue):
     def __init__(self):
         super().__init__('fill')
 
 
-@cbook.deprecated("3.3", alternative="Glue('filll')")
+@_api.deprecated("3.3", alternative="Glue('filll')")
 class Filll(Glue):
     def __init__(self):
         super().__init__('filll')
 
 
-@cbook.deprecated("3.3", alternative="Glue('neg_fil')")
+@_api.deprecated("3.3", alternative="Glue('neg_fil')")
 class NegFil(Glue):
     def __init__(self):
         super().__init__('neg_fil')
 
 
-@cbook.deprecated("3.3", alternative="Glue('neg_fill')")
+@_api.deprecated("3.3", alternative="Glue('neg_fill')")
 class NegFill(Glue):
     def __init__(self):
         super().__init__('neg_fill')
 
 
-@cbook.deprecated("3.3", alternative="Glue('neg_filll')")
+@_api.deprecated("3.3", alternative="Glue('neg_filll')")
 class NegFilll(Glue):
     def __init__(self):
         super().__init__('neg_filll')
 
 
-@cbook.deprecated("3.3", alternative="Glue('ss')")
+@_api.deprecated("3.3", alternative="Glue('ss')")
 class SsGlue(Glue):
     def __init__(self):
         super().__init__('ss')
@@ -1944,8 +1929,11 @@ class Parser:
     The grammar is based directly on that in TeX, though it cuts a few corners.
     """
 
-    _math_style_dict = dict(displaystyle=0, textstyle=1,
-                            scriptstyle=2, scriptscriptstyle=3)
+    class _MathStyle(enum.Enum):
+        DISPLAYSTYLE = enum.auto()
+        TEXTSTYLE = enum.auto()
+        SCRIPTSTYLE = enum.auto()
+        SCRIPTSCRIPTSTYLE = enum.auto()
 
     _binary_operators = set('''
       + * -
@@ -2377,8 +2365,8 @@ class Parser:
     }
 
     def space(self, s, loc, toks):
-        assert len(toks) == 1
-        num = self._space_widths[toks[0]]
+        tok, = toks
+        num = self._space_widths[tok]
         box = self._make_space(num)
         return [box]
 
@@ -2386,7 +2374,7 @@ class Parser:
         return [self._make_space(float(toks[0]))]
 
     def symbol(self, s, loc, toks):
-        c = toks[0]
+        c, = toks
         try:
             char = Char(c, self.get_state())
         except ValueError as err:
@@ -2426,7 +2414,7 @@ class Parser:
     accentprefixed = symbol
 
     def unknown_symbol(self, s, loc, toks):
-        c = toks[0]
+        c, = toks
         raise ParseFatalException(s, loc, "Unknown symbol: %s" % c)
 
     _char_over_chars = {
@@ -2437,7 +2425,7 @@ class Parser:
     }
 
     def c_over_c(self, s, loc, toks):
-        sym = toks[0]
+        sym, = toks
         state = self.get_state()
         thickness = state.font_output.get_underline_thickness(
             state.font, state.fontsize, state.dpi)
@@ -2503,13 +2491,10 @@ class Parser:
     ])(set(_accent_map))
 
     def accent(self, s, loc, toks):
-        assert len(toks) == 1
         state = self.get_state()
         thickness = state.font_output.get_underline_thickness(
             state.font, state.fontsize, state.dpi)
-        if len(toks[0]) != 2:
-            raise ParseFatalException("Error parsing accent")
-        accent, sym = toks[0]
+        (accent, sym), = toks
         if accent in self._wide_accents:
             accent_box = AutoWidthChar(
                 '\\' + accent, sym.width, state, char_class=Accent)
@@ -2528,7 +2513,7 @@ class Parser:
 
     def function(self, s, loc, toks):
         hlist = self.operatorname(s, loc, toks)
-        hlist.function_name = toks[0]
+        hlist.function_name, = toks
         return hlist
 
     def operatorname(self, s, loc, toks):
@@ -2576,8 +2561,7 @@ class Parser:
         return []
 
     def font(self, s, loc, toks):
-        assert len(toks) == 1
-        name = toks[0]
+        name, = toks
         self.get_state().font = name
         return []
 
@@ -2798,8 +2782,7 @@ class Parser:
 
         rule = float(rule)
 
-        # If style != displaystyle == 0, shrink the num and den
-        if style != self._math_style_dict['displaystyle']:
+        if style is not self._MathStyle.DISPLAYSTYLE:
             num.shrink()
             den.shrink()
         cnum = HCentered([num])
@@ -2834,45 +2817,32 @@ class Parser:
         return result
 
     def genfrac(self, s, loc, toks):
-        assert len(toks) == 1
-        assert len(toks[0]) == 6
-
-        return self._genfrac(*tuple(toks[0]))
+        args, = toks
+        return self._genfrac(*args)
 
     def frac(self, s, loc, toks):
-        assert len(toks) == 1
-        assert len(toks[0]) == 2
         state = self.get_state()
-
         thickness = state.font_output.get_underline_thickness(
             state.font, state.fontsize, state.dpi)
-        num, den = toks[0]
-
-        return self._genfrac('', '', thickness,
-                             self._math_style_dict['textstyle'], num, den)
+        (num, den), = toks
+        return self._genfrac('', '', thickness, self._MathStyle.TEXTSTYLE,
+                             num, den)
 
     def dfrac(self, s, loc, toks):
-        assert len(toks) == 1
-        assert len(toks[0]) == 2
         state = self.get_state()
-
         thickness = state.font_output.get_underline_thickness(
             state.font, state.fontsize, state.dpi)
-        num, den = toks[0]
-
-        return self._genfrac('', '', thickness,
-                             self._math_style_dict['displaystyle'], num, den)
+        (num, den), = toks
+        return self._genfrac('', '', thickness, self._MathStyle.DISPLAYSTYLE,
+                             num, den)
 
     def binom(self, s, loc, toks):
-        assert len(toks) == 1
-        assert len(toks[0]) == 2
-        num, den = toks[0]
-
-        return self._genfrac('(', ')', 0.0,
-                             self._math_style_dict['textstyle'], num, den)
+        (num, den), = toks
+        return self._genfrac('(', ')', 0.0, self._MathStyle.TEXTSTYLE,
+                             num, den)
 
     def sqrt(self, s, loc, toks):
-        root, body = toks[0]
+        (root, body), = toks
         state = self.get_state()
         thickness = state.font_output.get_underline_thickness(
             state.font, state.fontsize, state.dpi)
@@ -2912,10 +2882,7 @@ class Parser:
         return [hlist]
 
     def overline(self, s, loc, toks):
-        assert len(toks) == 1
-        assert len(toks[0]) == 1
-
-        body = toks[0][0]
+        (body,), = toks
 
         state = self.get_state()
         thickness = state.font_output.get_underline_thickness(

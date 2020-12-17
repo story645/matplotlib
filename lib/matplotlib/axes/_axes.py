@@ -2,7 +2,7 @@ import functools
 import itertools
 import logging
 import math
-from numbers import Number
+from numbers import Integral, Number
 
 import numpy as np
 from numpy import ma
@@ -66,10 +66,10 @@ class Axes(_AxesBase):
 
     def get_title(self, loc="center"):
         """
-        Get an axes title.
+        Get an Axes title.
 
-        Get one of the three available axes titles. The available titles
-        are positioned above the axes in the center, flush with the left
+        Get one of the three available Axes titles. The available titles
+        are positioned above the Axes in the center, flush with the left
         edge, and flush with the right edge.
 
         Parameters
@@ -92,10 +92,10 @@ class Axes(_AxesBase):
     def set_title(self, label, fontdict=None, loc=None, pad=None, *, y=None,
                   **kwargs):
         """
-        Set a title for the axes.
+        Set a title for the Axes.
 
-        Set one of the three available axes titles. The available titles
-        are positioned above the axes in the center, flush with the left
+        Set one of the three available Axes titles. The available titles
+        are positioned above the Axes in the center, flush with the left
         edge, and flush with the right edge.
 
         Parameters
@@ -117,12 +117,12 @@ class Axes(_AxesBase):
             Which title to set.
 
         y : float, default: :rc:`axes.titley`
-            Vertical axes loation for the title (1.0 is the top).  If
+            Vertical Axes loation for the title (1.0 is the top).  If
             None (the default), y is determined automatically to avoid
-            decorators on the axes.
+            decorators on the Axes.
 
         pad : float, default: :rc:`axes.titlepad`
-            The offset of the title from the top of the axes, in points.
+            The offset of the title from the top of the Axes, in points.
 
         Returns
         -------
@@ -185,7 +185,7 @@ class Axes(_AxesBase):
     @docstring.dedent_interpd
     def legend(self, *args, **kwargs):
         """
-        Place a legend on the axes.
+        Place a legend on the Axes.
 
         Call signatures::
 
@@ -223,7 +223,7 @@ class Axes(_AxesBase):
 
         **2. Labeling existing plot elements**
 
-        To make a legend for lines which already exist on the axes
+        To make a legend for lines which already exist on the Axes
         (via plot for instance), simply call this function with an iterable
         of strings, one for each legend item. For example::
 
@@ -296,7 +296,7 @@ class Axes(_AxesBase):
 
     def inset_axes(self, bounds, *, transform=None, zorder=5, **kwargs):
         """
-        Add a child inset axes to this existing axes.
+        Add a child inset Axes to this existing Axes.
 
         Warnings
         --------
@@ -305,16 +305,16 @@ class Axes(_AxesBase):
         Parameters
         ----------
         bounds : [x0, y0, width, height]
-            Lower-left corner of inset axes, and its width and height.
+            Lower-left corner of inset Axes, and its width and height.
 
         transform : `.Transform`
             Defaults to `ax.transAxes`, i.e. the units of *rect* are in
-            axes-relative coordinates.
+            Axes-relative coordinates.
 
         zorder : number
             Defaults to 5 (same as `.Axes.legend`).  Adjust higher or lower
             to change whether it is above or below data plotted on the
-            parent axes.
+            parent Axes.
 
         **kwargs
             Other keyword arguments are passed on to the child `.Axes`.
@@ -326,7 +326,7 @@ class Axes(_AxesBase):
 
         Examples
         --------
-        This example makes two inset axes, the first is in axes-relative
+        This example makes two inset Axes, the first is in Axes-relative
         coordinates, and the second in data-coordinates::
 
             fig, ax = plt.subplots()
@@ -356,9 +356,9 @@ class Axes(_AxesBase):
                        facecolor='none', edgecolor='0.5', alpha=0.5,
                        zorder=4.99, **kwargs):
         """
-        Add an inset indicator to the axes.  This is a rectangle on the plot
+        Add an inset indicator to the Axes.  This is a rectangle on the plot
         at the position indicated by *bounds* that optionally has lines that
-        connect the rectangle to an inset axes (`.Axes.inset_axes`).
+        connect the rectangle to an inset Axes (`.Axes.inset_axes`).
 
         Warnings
         --------
@@ -371,13 +371,13 @@ class Axes(_AxesBase):
             and height.
 
         inset_ax : `.Axes`
-            An optional inset axes to draw connecting lines to.  Two lines are
-            drawn connecting the indicator box to the inset axes on corners
+            An optional inset Axes to draw connecting lines to.  Two lines are
+            drawn connecting the indicator box to the inset Axes on corners
             chosen so as to not overlap with the indicator box.
 
         transform : `.Transform`
             Transform for the rectangle coordinates. Defaults to
-            `ax.transAxes`, i.e. the units of *rect* are in axes-relative
+            `ax.transAxes`, i.e. the units of *rect* are in Axes-relative
             coordinates.
 
         facecolor : color, default: 'none'
@@ -391,7 +391,7 @@ class Axes(_AxesBase):
 
         zorder : float, default: 4.99
             Drawing order of the rectangle and connector lines.  The default,
-            4.99, is just below the default level of inset axes.
+            4.99, is just below the default level of inset Axes.
 
         **kwargs
             Other keyword arguments are passed on to the `.Rectangle` patch:
@@ -449,7 +449,7 @@ class Axes(_AxesBase):
 
             # decide which two of the lines to keep visible....
             pos = inset_ax.get_position()
-            bboxins = pos.transformed(self.figure.transFigure)
+            bboxins = pos.transformed(self.figure.transSubfigure)
             rectbbox = mtransforms.Bbox.from_bounds(
                 *bounds
             ).transformed(transform)
@@ -466,7 +466,7 @@ class Axes(_AxesBase):
 
     def indicate_inset_zoom(self, inset_ax, **kwargs):
         """
-        Add an inset indicator rectangle to the axes based on the axis
+        Add an inset indicator rectangle to the Axes based on the axis
         limits for an *inset_ax* and draw connectors between *inset_ax*
         and the rectangle.
 
@@ -477,8 +477,8 @@ class Axes(_AxesBase):
         Parameters
         ----------
         inset_ax : `.Axes`
-            Inset axes to draw connecting lines to.  Two lines are
-            drawn connecting the indicator box to the inset axes on corners
+            Inset Axes to draw connecting lines to.  Two lines are
+            drawn connecting the indicator box to the inset Axes on corners
             chosen so as to not overlap with the indicator box.
 
         **kwargs
@@ -506,7 +506,7 @@ class Axes(_AxesBase):
     @docstring.dedent_interpd
     def secondary_xaxis(self, location, *, functions=None, **kwargs):
         """
-        Add a second x-axis to this axes.
+        Add a second x-axis to this Axes.
 
         For example if we want to have a second scale for the data plotted on
         the xaxis.
@@ -524,8 +524,14 @@ class Axes(_AxesBase):
             ax.set_xlabel('frequency [Hz]')
 
             def invert(x):
-                return 1 / x
+                # 1/x with special treatment of x == 0
+                x = np.array(x).astype(float)
+                near_zero = np.isclose(x, 0)
+                x[near_zero] = np.inf
+                x[~near_zero] = 1 / x[~near_zero]
+                return x
 
+            # the inverse of 1/x is itself
             secax = ax.secondary_xaxis('top', functions=(invert, invert))
             secax.set_xlabel('Period [s]')
             plt.show()
@@ -542,7 +548,7 @@ class Axes(_AxesBase):
     @docstring.dedent_interpd
     def secondary_yaxis(self, location, *, functions=None, **kwargs):
         """
-        Add a second y-axis to this axes.
+        Add a second y-axis to this Axes.
 
         For example if we want to have a second scale for the data plotted on
         the yaxis.
@@ -551,7 +557,7 @@ class Axes(_AxesBase):
 
         Examples
         --------
-        Add a secondary axes that converts from radians to degrees
+        Add a secondary Axes that converts from radians to degrees
 
         .. plot::
 
@@ -574,9 +580,9 @@ class Axes(_AxesBase):
     @docstring.dedent_interpd
     def text(self, x, y, s, fontdict=None, **kwargs):
         """
-        Add text to the axes.
+        Add text to the Axes.
 
-        Add the text *s* to the axes at location *x*, *y* in data coordinates.
+        Add the text *s* to the Axes at location *x*, *y* in data coordinates.
 
         Parameters
         ----------
@@ -602,7 +608,7 @@ class Axes(_AxesBase):
         **kwargs : `~matplotlib.text.Text` properties.
             Other miscellaneous text parameters.
 
-            %(Text)s
+            %(Text_kwdoc)s
 
         Examples
         --------
@@ -614,7 +620,7 @@ class Axes(_AxesBase):
         The default transform specifies that text is in data coords,
         alternatively, you can specify text in axis coords ((0, 0) is
         lower-left and (1, 1) is upper-right).  The example below places
-        text in the center of the axes::
+        text in the center of the Axes::
 
             >>> text(0.5, 0.5, 'matplotlib', horizontalalignment='center',
             ...      verticalalignment='center', transform=ax.transAxes)
@@ -721,7 +727,7 @@ class Axes(_AxesBase):
     @docstring.dedent_interpd
     def axvline(self, x=0, ymin=0, ymax=1, **kwargs):
         """
-        Add a vertical line across the axes.
+        Add a vertical line across the Axes.
 
         Parameters
         ----------
@@ -808,6 +814,11 @@ class Axes(_AxesBase):
         all other scales, and thus the behavior is undefined. Please specify
         the line using the points *xy1*, *xy2* for non-linear scales.
 
+        The *transform* keyword argument only applies to the points *xy1*,
+        *xy2*. The *slope* (if given) is always in data coordinates. This can
+        be used e.g. with ``ax.transAxes`` for drawing grid lines with a fixed
+        slope.
+
         Parameters
         ----------
         xy1, xy2 : (float, float)
@@ -823,8 +834,7 @@ class Axes(_AxesBase):
         Other Parameters
         ----------------
         **kwargs
-            Valid kwargs are `.Line2D` properties, with the exception of
-            'transform':
+            Valid kwargs are `.Line2D` properties
 
             %(_Line2D_docstr)s
 
@@ -839,30 +849,17 @@ class Axes(_AxesBase):
 
             >>> axline((0, 0), (1, 1), linewidth=4, color='r')
         """
-        def _to_points(xy1, xy2, slope):
-            """
-            Check for a valid combination of input parameters and convert
-            to two points, if necessary.
-            """
-            if (xy2 is None and slope is None or
-                    xy2 is not None and slope is not None):
-                raise TypeError(
-                    "Exactly one of 'xy2' and 'slope' must be given")
-            if xy2 is None:
-                x1, y1 = xy1
-                xy2 = (x1, y1 + 1) if np.isinf(slope) else (x1 + 1, y1 + slope)
-            return xy1, xy2
-
-        if "transform" in kwargs:
-            raise TypeError("'transform' is not allowed as a kwarg; "
-                            "axline generates its own transform")
         if slope is not None and (self.get_xscale() != 'linear' or
                                   self.get_yscale() != 'linear'):
             raise TypeError("'slope' cannot be used with non-linear scales")
 
         datalim = [xy1] if xy2 is None else [xy1, xy2]
-        (x1, y1), (x2, y2) = _to_points(xy1, xy2, slope)
-        line = mlines._AxLine([x1, x2], [y1, y2], **kwargs)
+        if "transform" in kwargs:
+            # if a transform is passed (i.e. line points not in data space),
+            # data limits should not be adjusted.
+            datalim = []
+
+        line = mlines._AxLine(xy1, xy2, slope, **kwargs)
         # Like add_line, but correctly handling data limits.
         self._set_artist_props(line)
         if line.get_clip_path() is None:
@@ -879,7 +876,7 @@ class Axes(_AxesBase):
     @docstring.dedent_interpd
     def axhspan(self, ymin, ymax, xmin=0, xmax=1, **kwargs):
         """
-        Add a horizontal span (rectangle) across the axis.
+        Add a horizontal span (rectangle) across the Axes.
 
         The rectangle spans from *ymin* to *ymax* vertically, and, by default,
         the whole x-axis horizontally.  The x-span can be set using *xmin*
@@ -911,7 +908,7 @@ class Axes(_AxesBase):
 
         See Also
         --------
-        axvspan : Add a vertical span across the axes.
+        axvspan : Add a vertical span across the Axes.
         """
         # Strip units away.
         self._check_no_units([xmin, xmax], ['xmin', 'xmax'])
@@ -926,7 +923,7 @@ class Axes(_AxesBase):
 
     def axvspan(self, xmin, xmax, ymin=0, ymax=1, **kwargs):
         """
-        Add a vertical span (rectangle) across the axes.
+        Add a vertical span (rectangle) across the Axes.
 
         The rectangle spans from *xmin* to *xmax* horizontally, and, by
         default, the whole y-axis vertically.  The y-span can be set using
@@ -958,12 +955,12 @@ class Axes(_AxesBase):
 
         See Also
         --------
-        axhspan : Add a horizontal span across the axes.
+        axhspan : Add a horizontal span across the Axes.
 
         Examples
         --------
         Draw a vertical, green, translucent rectangle from x = 1.25 to
-        x = 1.55 that spans the yrange of the axes.
+        x = 1.55 that spans the yrange of the Axes.
 
         >>> axvspan(1.25, 1.55, facecolor='g', alpha=0.5)
 
@@ -1012,7 +1009,7 @@ class Axes(_AxesBase):
         See Also
         --------
         vlines : vertical lines
-        axhline: horizontal line across the axes
+        axhline : horizontal line across the Axes
         """
 
         # We do the conversion first since not all unitized data is uniform
@@ -1089,7 +1086,7 @@ class Axes(_AxesBase):
         See Also
         --------
         hlines : horizontal lines
-        axvline: vertical line across the axes
+        axvline : vertical line across the Axes
         """
 
         # We do the conversion first since not all unitized data is uniform
@@ -1414,14 +1411,21 @@ class Axes(_AxesBase):
           >>> plot(x1, y1, 'bo')
           >>> plot(x2, y2, 'go')
 
-        - Alternatively, if your data is already a 2d array, you can pass it
-          directly to *x*, *y*. A separate data set will be drawn for every
-          column.
+        - If *x* and/or *y* are 2D arrays a separate data set will be drawn
+          for every column. If both *x* and *y* are 2D, they must have the
+          same shape. If only one of them is 2D with shape (N, m) the other
+          must have length N and will be used for every data set m.
 
-          Example: an array ``a`` where the first column represents the *x*
-          values and the other columns are the *y* columns::
+          Example:
 
-          >>> plot(a[0], a[1:])
+          >>> x = [1, 2, 3]
+          >>> y = np.array([[1, 2], [3, 4], [5, 6]])
+          >>> plot(x, y)
+
+          is equivalent to:
+
+          >>> for col in range(y.shape[1]):
+          ...     plot(x, y[:, col])
 
         - The third way is to specify multiple sets of *[x]*, *y*, *[fmt]*
           groups::
@@ -1857,7 +1861,7 @@ class Axes(_AxesBase):
         c : array  (length ``2*maxlags+1``)
             The auto correlation vector.
         line : `.LineCollection` or `.Line2D`
-            `.Artist` added to the axes of the correlation:
+            `.Artist` added to the Axes of the correlation:
 
             - `.LineCollection` if *usevlines* is True.
             - `.Line2D` if *usevlines* is False.
@@ -1931,7 +1935,7 @@ class Axes(_AxesBase):
         c : array  (length ``2*maxlags+1``)
             The auto correlation vector.
         line : `.LineCollection` or `.Line2D`
-            `.Artist` added to the axes of the correlation:
+            `.Artist` added to the Axes of the correlation:
 
             - `.LineCollection` if *usevlines* is True.
             - `.Line2D` if *usevlines* is False.
@@ -2021,11 +2025,11 @@ class Axes(_AxesBase):
         Parameters
         ----------
         x : array-like
-            1-D sequence of x positions. It is assumed, but not checked, that
+            1D sequence of x positions. It is assumed, but not checked, that
             it is uniformly increasing.
 
         y : array-like
-            1-D sequence of y levels.
+            1D sequence of y levels.
 
         fmt : str, optional
             A format string, e.g. 'g' for a green line. See `.plot` for a more
@@ -2214,7 +2218,7 @@ class Axes(_AxesBase):
 
         See Also
         --------
-        barh: Plot a horizontal bar plot.
+        barh : Plot a horizontal bar plot.
 
         Notes
         -----
@@ -2483,7 +2487,7 @@ class Axes(_AxesBase):
 
         See Also
         --------
-        bar: Plot a vertical bar plot.
+        bar : Plot a vertical bar plot.
 
         Notes
         -----
@@ -2507,7 +2511,7 @@ class Axes(_AxesBase):
         have the same vertical position and size defined by *yrange*.
 
         This is a convenience function for instantiating a
-        `.BrokenBarHCollection`, adding it to the axes and autoscaling the
+        `.BrokenBarHCollection`, adding it to the Axes and autoscaling the
         view.
 
         Parameters
@@ -2601,8 +2605,7 @@ class Axes(_AxesBase):
             For horizontal stem plots, the x-values of the stem heads.
 
         linefmt : str, optional
-            A string defining the properties of the vertical lines. Usually,
-            this will be a color or a color and a linestyle:
+            A string defining the color and/or linestyle of the vertical lines:
 
             =========  =============
             Character  Line Style
@@ -2616,15 +2619,14 @@ class Axes(_AxesBase):
             Default: 'C0-', i.e. solid line with the first color of the color
             cycle.
 
-            Note: While it is technically possible to specify valid formats
-            other than color or color and linestyle (e.g. 'rx' or '-.'), this
-            is beyond the intention of the method and will most likely not
-            result in a reasonable plot.
+            Note: Markers specified through this parameter (e.g. 'x') will be
+            silently ignored (unless using ``use_line_collection=False``).
+            Instead, markers should be specified using *markerfmt*.
 
         markerfmt : str, optional
-            A string defining the properties of the markers at the stem heads.
-            Default: 'C0o', i.e. filled circles with the first color of the
-            color cycle.
+            A string defining the color and/or shape of the markers at the stem
+            heads.  Default: 'C0o', i.e. filled circles with the first color of
+            the color cycle.
 
         basefmt : str, default: 'C3-' ('C2-' in classic mode)
             A format string defining the properties of the baseline.
@@ -2725,20 +2727,12 @@ class Axes(_AxesBase):
 
         # New behaviour in 3.1 is to use a LineCollection for the stemlines
         if use_line_collection:
-            if orientation == 'horizontal':
-                stemlines = [
-                    ((bottom, loc), (head, loc))
-                    for loc, head in zip(locs, heads)]
-            else:
-                stemlines = [
-                    ((loc, bottom), (loc, head))
-                    for loc, head in zip(locs, heads)]
             if linestyle is None:
                 linestyle = rcParams['lines.linestyle']
-            stemlines = mcoll.LineCollection(stemlines, linestyles=linestyle,
-                                             colors=linecolor,
-                                             label='_nolegend_')
-            self.add_collection(stemlines)
+            xlines = self.vlines if orientation == "vertical" else self.hlines
+            stemlines = xlines(
+                locs, bottom, heads,
+                colors=linecolor, linestyles=linestyle, label="_nolegend_")
         # Old behaviour is to plot each of the lines individually
         else:
             stemlines = []
@@ -2824,7 +2818,7 @@ class Axes(_AxesBase):
         shadow : bool, default: False
             Draw a shadow beneath the pie.
 
-        normalize: None or bool, default: None
+        normalize : None or bool, default: None
             When *True*, always make a full pie by normalizing x so that
             ``sum(x) == 1``. *False* makes a partial pie if ``sum(x) <= 1``
             and raises a `ValueError` for ``sum(x) > 1``.
@@ -2866,7 +2860,7 @@ class Axes(_AxesBase):
             The coordinates of the center of the chart.
 
         frame : bool, default: False
-            Plot axes frame with the chart if true.
+            Plot Axes frame with the chart if true.
 
         rotatelabels : bool, default: False
             Rotate each label to the angle of the corresponding slice if true.
@@ -2885,10 +2879,10 @@ class Axes(_AxesBase):
 
         Notes
         -----
-        The pie chart will probably look best if the figure and axes are
+        The pie chart will probably look best if the figure and Axes are
         square, or the Axes aspect is equal.
         This method sets the aspect ratio of the axis to "equal".
-        The axes aspect ratio can be controlled with `.Axes.set_aspect`.
+        The Axes aspect ratio can be controlled with `.Axes.set_aspect`.
         """
         self.set_aspect('equal')
         # The use of float32 is "historical", but can't be changed without
@@ -3147,17 +3141,6 @@ class Axes(_AxesBase):
         kwargs = {k: v for k, v in kwargs.items() if v is not None}
         kwargs.setdefault('zorder', 2)
 
-        try:
-            offset, errorevery = errorevery
-        except TypeError:
-            offset = 0
-
-        if errorevery < 1 or int(errorevery) != errorevery:
-            raise ValueError(
-                'errorevery must be positive integer or tuple of integers')
-        if int(offset) != offset:
-            raise ValueError("errorevery's starting index must be an integer")
-
         self._process_unit_info([("x", x), ("y", y)], kwargs, convert=False)
 
         # Make sure all the args are iterable; use lists not arrays to preserve
@@ -3178,6 +3161,33 @@ class Axes(_AxesBase):
         if yerr is not None:
             if not np.iterable(yerr):
                 yerr = [yerr] * len(y)
+
+        if isinstance(errorevery, Integral):
+            errorevery = (0, errorevery)
+        if isinstance(errorevery, tuple):
+            if (len(errorevery) == 2 and
+                    isinstance(errorevery[0], Integral) and
+                    isinstance(errorevery[1], Integral)):
+                errorevery = slice(errorevery[0], None, errorevery[1])
+            else:
+                raise ValueError(
+                    f'errorevery={errorevery!r} is a not a tuple of two '
+                    f'integers')
+
+        elif isinstance(errorevery, slice):
+            pass
+
+        elif not isinstance(errorevery, str) and np.iterable(errorevery):
+            # fancy indexing
+            try:
+                x[errorevery]
+            except (ValueError, IndexError) as err:
+                raise ValueError(
+                    f"errorevery={errorevery!r} is iterable but not a valid "
+                    f"NumPy fancy index to match 'xerr'/'yerr'") from err
+        else:
+            raise ValueError(
+                f"errorevery={errorevery!r} is not a recognized value")
 
         label = kwargs.pop("label", None)
         kwargs['label'] = '_nolegend_'
@@ -3219,6 +3229,7 @@ class Axes(_AxesBase):
         base_style.pop('markerfacecolor', None)
         base_style.pop('markeredgewidth', None)
         base_style.pop('markeredgecolor', None)
+        base_style.pop('markevery', None)
         base_style.pop('linestyle', None)
 
         # Make the style dict for the line collections (the bars).
@@ -3260,7 +3271,7 @@ class Axes(_AxesBase):
         xuplims = np.broadcast_to(xuplims, len(x)).astype(bool)
 
         everymask = np.zeros(len(x), bool)
-        everymask[offset::errorevery] = True
+        everymask[errorevery] = True
 
         def apply_mask(arrays, mask):
             # Return, for each array in *arrays*, the elements for which *mask*
@@ -3452,7 +3463,6 @@ class Axes(_AxesBase):
             If a pair of floats, they indicate the percentiles at which to
             draw the whiskers (e.g., (5, 95)).  In particular, setting this to
             (0, 100) results in whiskers covering the whole range of the data.
-            "range" is a deprecated synonym for (0, 100).
 
             In the edge case where ``Q1 == Q3``, *whis* is automatically set
             to (0, 100) (cover the whole range of the data) if *autorange* is
@@ -3848,23 +3858,20 @@ class Axes(_AxesBase):
             d['zorder'] = zorder + zdelta
             if not use_marker:
                 d['marker'] = ''
-            if explicit is not None:
-                d.update(cbook.normalize_kwargs(explicit, mlines.Line2D))
+            d.update(cbook.normalize_kwargs(explicit, mlines.Line2D))
             return d
 
         # box properties
         if patch_artist:
-            final_boxprops = dict(
-                linestyle=rcParams['boxplot.boxprops.linestyle'],
-                linewidth=rcParams['boxplot.boxprops.linewidth'],
-                edgecolor=rcParams['boxplot.boxprops.color'],
-                facecolor=('white' if rcParams['_internal.classic_mode'] else
-                           rcParams['patch.facecolor']),
-                zorder=zorder,
-            )
-            if boxprops is not None:
-                final_boxprops.update(
-                    cbook.normalize_kwargs(boxprops, mpatches.PathPatch))
+            final_boxprops = {
+                'linestyle': rcParams['boxplot.boxprops.linestyle'],
+                'linewidth': rcParams['boxplot.boxprops.linewidth'],
+                'edgecolor': rcParams['boxplot.boxprops.color'],
+                'facecolor': ('white' if rcParams['_internal.classic_mode']
+                              else rcParams['patch.facecolor']),
+                'zorder': zorder,
+                **cbook.normalize_kwargs(boxprops, mpatches.PathPatch)
+            }
         else:
             final_boxprops = line_props_with_rcdefaults('boxprops', boxprops,
                                                         use_marker=False)
@@ -4062,15 +4069,15 @@ class Axes(_AxesBase):
         Argument precedence for facecolors:
 
         - c (if not None)
-        - kwargs['facecolors']
         - kwargs['facecolor']
+        - kwargs['facecolors']
         - kwargs['color'] (==kwcolor)
         - 'b' if in classic mode else the result of ``get_next_color_func()``
 
         Argument precedence for edgecolors:
 
-        - edgecolors (is an explicit kw argument in scatter())
         - kwargs['edgecolor']
+        - edgecolors (is an explicit kw argument in scatter())
         - kwargs['color'] (==kwcolor)
         - 'face' if not in classic mode else None
 
@@ -4176,7 +4183,7 @@ class Axes(_AxesBase):
                             "RGBA sequence, which should be avoided as value-"
                             "mapping will have precedence in case its length "
                             "matches with *x* & *y*.  Please use the *color* "
-                            "keyword-argument or provide a 2-D array "
+                            "keyword-argument or provide a 2D array "
                             "with a single row if you intend to specify "
                             "the same RGB or RGBA value for all points.")
                     valid_shape = False
@@ -4207,11 +4214,9 @@ class Axes(_AxesBase):
                                      "edgecolors", "c", "facecolor",
                                      "facecolors", "color"],
                       label_namer="y")
-    @cbook._delete_parameter("3.2", "verts")
     def scatter(self, x, y, s=None, c=None, marker=None, cmap=None, norm=None,
-                vmin=None, vmax=None, alpha=None, linewidths=None,
-                verts=None, edgecolors=None, *, plotnonfinite=False,
-                **kwargs):
+                vmin=None, vmax=None, alpha=None, linewidths=None, *,
+                edgecolors=None, plotnonfinite=False, **kwargs):
         """
         A scatter plot of *y* vs. *x* with varying marker size and/or color.
 
@@ -4229,14 +4234,14 @@ class Axes(_AxesBase):
 
             - A scalar or sequence of n numbers to be mapped to colors using
               *cmap* and *norm*.
-            - A 2-D array in which the rows are RGB or RGBA.
+            - A 2D array in which the rows are RGB or RGBA.
             - A sequence of colors of length n.
             - A single color format string.
 
             Note that *c* should not be a single numeric RGB or RGBA sequence
             because that is indistinguishable from an array of values to be
             colormapped. If you want to specify the same RGB or RGBA value for
-            all points, use a 2-D array with a single row.  Otherwise, value-
+            all points, use a 2D array with a single row.  Otherwise, value-
             matching will have precedence in case of a size matching with *x*
             and *y*.
 
@@ -4317,7 +4322,7 @@ default: :rc:`scatter.edgecolors`
           case all masks will be combined and only unmasked points will be
           plotted.
 
-        * Fundamentally, scatter works with 1-D arrays; *x*, *y*, *s*, and *c*
+        * Fundamentally, scatter works with 1D arrays; *x*, *y*, *s*, and *c*
           may be input as N-D arrays, but within scatter they will be
           flattened. The exception is *c*, which will be flattened only if its
           size matches the size of *x* and *y*.
@@ -4455,7 +4460,7 @@ default: :rc:`scatter.edgecolors`
 
             - If *None*, no binning is applied; the color of each hexagon
               directly corresponds to its count value.
-            - If 'log', use a logarithmic scale for the color map.
+            - If 'log', use a logarithmic scale for the colormap.
               Internally, :math:`log_{10}(i+1)` is used to determine the
               hexagon color. This is equivalent to ``norm=LogNorm()``.
             - If an integer, divide the counts in the specified number
@@ -4546,7 +4551,7 @@ default: :rc:`scatter.edgecolors`
 
             - `numpy.mean`: average of the points
             - `numpy.sum`: integral of the point values
-            - `numpy.max`: value taken from the largest point
+            - `numpy.amax`: value taken from the largest point
 
         **kwargs : `~matplotlib.collections.PolyCollection` properties
             All other keyword arguments are passed on to `.PolyCollection`:
@@ -4851,7 +4856,7 @@ default: :rc:`scatter.edgecolors`
     @docstring.dedent_interpd
     def arrow(self, x, y, dx, dy, **kwargs):
         """
-        Add an arrow to the axes.
+        Add an arrow to the Axes.
 
         This draws an arrow from ``(x, y)`` to ``(x+dx, y+dy)``.
 
@@ -4872,7 +4877,7 @@ default: :rc:`scatter.edgecolors`
 
         Notes
         -----
-        The resulting arrow is affected by the axes aspect ratio and limits.
+        The resulting arrow is affected by the Axes aspect ratio and limits.
         This may produce an arrow whose head is not square with its stem. To
         create an arrow whose head is square with its stem,
         use :meth:`annotate` for example:
@@ -5080,7 +5085,6 @@ default: :rc:`scatter.edgecolors`
         """
 
         dep_dir = {"x": "y", "y": "x"}[ind_dir]
-        func_name = {"x": "fill_between", "y": "fill_betweenx"}[dep_dir]
 
         if not rcParams["_internal.classic_mode"]:
             kwargs = cbook.normalize_kwargs(kwargs, mcoll.Collection)
@@ -5103,10 +5107,8 @@ default: :rc:`scatter.edgecolors`
         else:
             where = np.asarray(where, dtype=bool)
             if where.size != ind.size:
-                cbook.warn_deprecated(
-                    "3.2", message=f"Since %(since)s, the parameter *where* "
-                    f"must have the same size as {ind} in {func_name}(). This "
-                    "will become an error %(removal)s.")
+                raise ValueError(f"where size ({where.size}) does not match "
+                                 f"{ind_dir} size ({ind.size})")
         where = where & ~functools.reduce(
             np.logical_or, map(np.ma.getmask, [ind, dep1, dep2]))
 
@@ -5222,10 +5224,10 @@ default: :rc:`scatter.edgecolors`
 
         The input may either be actual RGB(A) data, or 2D scalar data, which
         will be rendered as a pseudocolor image. For displaying a grayscale
-        image set up the color mapping using the parameters
+        image set up the colormapping using the parameters
         ``cmap='gray', vmin=0, vmax=255``.
 
-        The number of pixels used to render an image is set by the axes size
+        The number of pixels used to render an image is set by the Axes size
         and the *dpi* of the figure. This can lead to aliasing artifacts when
         the image is resampled because the displayed image size will usually
         not match the size of *X* (see
@@ -5261,7 +5263,7 @@ default: :rc:`scatter.edgecolors`
             This parameter is ignored for RGB(A) data.
 
         aspect : {'equal', 'auto'} or float, default: :rc:`image.aspect`
-            The aspect ratio of the axes.  This parameter is particularly
+            The aspect ratio of the Axes.  This parameter is particularly
             relevant for images since it determines whether data pixels are
             square.
 
@@ -5271,8 +5273,8 @@ default: :rc:`scatter.edgecolors`
             - 'equal': Ensures an aspect ratio of 1. Pixels will be square
               (unless pixel sizes are explicitly made non-square in data
               coordinates using *extent*).
-            - 'auto': The axes is kept fixed and the aspect is adjusted so
-              that the data fit in the axes. In general, this will result in
+            - 'auto': The Axes is kept fixed and the aspect is adjusted so
+              that the data fit in the Axes. In general, this will result in
               non-square pixels.
 
         interpolation : str, default: :rc:`image.interpolation`
@@ -5281,7 +5283,7 @@ default: :rc:`scatter.edgecolors`
             Supported values are 'none', 'antialiased', 'nearest', 'bilinear',
             'bicubic', 'spline16', 'spline36', 'hanning', 'hamming', 'hermite',
             'kaiser', 'quadric', 'catrom', 'gaussian', 'bessel', 'mitchell',
-            'sinc', 'lanczos'.
+            'sinc', 'lanczos', 'blackman'.
 
             If *interpolation* is 'none', then no interpolation is performed
             on the Agg, ps, pdf and svg backends. Other backends will fall back
@@ -5317,13 +5319,14 @@ default: :rc:`scatter.edgecolors`
             define the data range that the colormap covers. By default,
             the colormap covers the complete value range of the supplied
             data. It is deprecated to use *vmin*/*vmax* when *norm* is given.
+            When using RGB(A) data, parameters *vmin*/*vmax* are ignored.
 
         origin : {'upper', 'lower'}, default: :rc:`image.origin`
             Place the [0, 0] index of the array in the upper left or lower
-            left corner of the axes. The convention (the default) 'upper' is
+            left corner of the Axes. The convention (the default) 'upper' is
             typically used for matrices and images.
 
-            Note that the vertical axes points upward for 'lower'
+            Note that the vertical axis points upward for 'lower'
             but downward for 'upper'.
 
             See the :doc:`/tutorials/intermediate/imshow_extent` tutorial for
@@ -5422,8 +5425,7 @@ default: :rc:`scatter.edgecolors`
         self.add_image(im)
         return im
 
-    @staticmethod
-    def _pcolorargs(funcname, *args, shading='flat'):
+    def _pcolorargs(self, funcname, *args, shading='flat', **kwargs):
         # - create X and Y if not present;
         # - reshape X and Y as needed if they are 1-D;
         # - check for proper sizes based on `shading` kwarg;
@@ -5454,6 +5456,9 @@ default: :rc:`scatter.edgecolors`
             # Check x and y for bad data...
             C = np.asanyarray(args[2])
             X, Y = [cbook.safe_masked_invalid(a) for a in args[:2]]
+            # unit conversion allows e.g. datetime objects as axis values
+            X, Y = self._process_unit_info([("x", X), ("y", Y)], kwargs)
+
             if funcname == 'pcolormesh':
                 if np.ma.is_masked(X) or np.ma.is_masked(Y):
                     raise ValueError(
@@ -5570,7 +5575,7 @@ default: :rc:`scatter.edgecolors`
         Parameters
         ----------
         C : array-like
-            A scalar 2-D array. The values will be color-mapped.
+            A scalar 2D array. The values will be color-mapped.
 
         X, Y : array-like, optional
             The coordinates of the corners of quadrilaterals of a pcolormesh::
@@ -5596,7 +5601,7 @@ default: :rc:`scatter.edgecolors`
             color ``C[i, j]`` will be centered on ``(X[i, j], Y[i, j])``.
 
             If *X* and/or *Y* are 1-D arrays or column vectors they will be
-            expanded as needed into the appropriate 2-D arrays, making a
+            expanded as needed into the appropriate 2D arrays, making a
             rectangular grid.
 
         shading : {'flat', 'nearest', 'auto'}, optional
@@ -5702,11 +5707,9 @@ default: :rc:`scatter.edgecolors`
         if shading is None:
             shading = rcParams['pcolor.shading']
         shading = shading.lower()
-        X, Y, C, shading = self._pcolorargs('pcolor', *args, shading=shading)
+        X, Y, C, shading = self._pcolorargs('pcolor', *args, shading=shading,
+                                            kwargs=kwargs)
         Ny, Nx = X.shape
-
-        # unit conversion allows e.g. datetime objects as axis values
-        X, Y = self._process_unit_info([("x", X), ("y", Y)], kwargs)
 
         # convert to MA, if necessary.
         C = ma.asarray(C)
@@ -5816,7 +5819,7 @@ default: :rc:`scatter.edgecolors`
         Parameters
         ----------
         C : array-like
-            A scalar 2-D array. The values will be color-mapped.
+            A scalar 2D array. The values will be color-mapped.
 
         X, Y : array-like, optional
             The coordinates of the corners of quadrilaterals of a pcolormesh::
@@ -5844,7 +5847,7 @@ default: :rc:`scatter.edgecolors`
             interpolation is caried out between the quadrilateral corners.
 
             If *X* and/or *Y* are 1-D arrays or column vectors they will be
-            expanded as needed into the appropriate 2-D arrays, making a
+            expanded as needed into the appropriate 2D arrays, making a
             rectangular grid.
 
         cmap : str or `~matplotlib.colors.Colormap`, default: :rc:`image.cmap`
@@ -5904,6 +5907,11 @@ default: :rc:`scatter.edgecolors`
         snap : bool, default: False
             Whether to snap the mesh to pixel boundaries.
 
+        rasterized: bool, optional
+            Rasterize the pcolormesh when drawing vector graphics.  This can
+            speed up rendering and produce smaller files for large data sets.
+            See also :doc:`/gallery/misc/rasterization_demo`.
+
         Returns
         -------
         `matplotlib.collections.QuadMesh`
@@ -5945,7 +5953,7 @@ default: :rc:`scatter.edgecolors`
 
         **Differences between pcolor() and pcolormesh()**
 
-        Both methods are used to create a pseudocolor plot of a 2-D array
+        Both methods are used to create a pseudocolor plot of a 2D array
         using quadrilaterals.
 
         The main difference lies in the created object and internal data
@@ -5976,12 +5984,10 @@ default: :rc:`scatter.edgecolors`
         kwargs.setdefault('edgecolors', 'None')
 
         X, Y, C, shading = self._pcolorargs('pcolormesh', *args,
-                                            shading=shading)
+                                            shading=shading, kwargs=kwargs)
         Ny, Nx = X.shape
         X = X.ravel()
         Y = Y.ravel()
-        # unit conversion allows e.g. datetime objects as axis values
-        X, Y = self._process_unit_info([("x", X), ("y", Y)], kwargs)
 
         # convert to one dimensional arrays
         C = C.ravel()
@@ -6217,7 +6223,13 @@ default: :rc:`scatter.edgecolors`
         contours = mcontour.QuadContourSet(self, *args, **kwargs)
         self._request_autoscale_view()
         return contours
-    contour.__doc__ = mcontour.QuadContourSet._contour_doc
+    contour.__doc__ = """
+        Plot contour lines.
+
+        Call signature::
+
+            contour([X, Y,] Z, [levels], **kwargs)
+        """ + mcontour.QuadContourSet._contour_doc
 
     @_preprocess_data()
     def contourf(self, *args, **kwargs):
@@ -6225,7 +6237,13 @@ default: :rc:`scatter.edgecolors`
         contours = mcontour.QuadContourSet(self, *args, **kwargs)
         self._request_autoscale_view()
         return contours
-    contourf.__doc__ = mcontour.QuadContourSet._contour_doc
+    contourf.__doc__ = """
+        Plot filled contours.
+
+        Call signature::
+
+            contourf([X, Y,] Z, [levels], **kwargs)
+        """ + mcontour.QuadContourSet._contour_doc
 
     def clabel(self, CS, levels=None, **kwargs):
         """
@@ -6265,7 +6283,7 @@ default: :rc:`scatter.edgecolors`
 
         Multiple data can be provided via *x* as a list of datasets
         of potentially different length ([*x0*, *x1*, ...]), or as
-        a 2-D ndarray in which each column is a dataset.  Note that
+        a 2D ndarray in which each column is a dataset.  Note that
         the ndarray form is transposed relative to the list form.
 
         Masked arrays are not supported.
@@ -6382,10 +6400,7 @@ default: :rc:`scatter.edgecolors`
             Ignored if *histtype* is 'step' or 'stepfilled'.
 
         log : bool, default: False
-            If ``True``, the histogram axis will be set to a log scale. If
-            *log* is ``True`` and *x* is a 1D array, empty bins will be
-            filtered out and only the non-empty ``(n, bins, patches)``
-            will be returned.
+            If ``True``, the histogram axis will be set to a log scale.
 
         color : color or array-like of colors or None, default: None
             Color or sequence of colors, one per dataset.  Default (``None``)
@@ -6714,7 +6729,8 @@ such objects
     def stairs(self, values, edges=None, *,
                orientation='vertical', baseline=0, fill=False, **kwargs):
         """
-        A stepwise constant line or filled plot.
+        A stepwise constant function as a line with bounding edges
+        or a filled plot.
 
         Parameters
         ----------
@@ -6729,9 +6745,11 @@ such objects
             The direction of the steps. Vertical means that *values* are along
             the y-axis, and edges are along the x-axis.
 
-        baseline : float or None, default: 0
-            Determines starting value of the bounding edges or when
-            ``fill=True``, position of lower edge.
+        baseline : float, array-like or None, default: 0
+            The bottom value of the bounding edges or when
+            ``fill=True``, position of lower edge. If *fill* is
+            True or an array is passed to *baseline*, a closed
+            path is drawn.
 
         fill : bool, default: False
             Whether the area under the step curve should be filled.
@@ -6760,8 +6778,8 @@ such objects
         if edges is None:
             edges = np.arange(len(values) + 1)
 
-        edges, values = self._process_unit_info(
-            [("x", edges), ("y", values)], kwargs)
+        edges, values, baseline = self._process_unit_info(
+            [("x", edges), ("y", values), ("y", baseline)], kwargs)
 
         patch = mpatches.StepPatch(values,
                                    edges,
@@ -6773,9 +6791,11 @@ such objects
         if baseline is None:
             baseline = 0
         if orientation == 'vertical':
-            patch.sticky_edges.y.append(baseline)
+            patch.sticky_edges.y.append(np.min(baseline))
+            self.update_datalim([(edges[0], np.min(baseline))])
         else:
-            patch.sticky_edges.x.append(baseline)
+            patch.sticky_edges.x.append(np.min(baseline))
+            self.update_datalim([(np.min(baseline), edges[0])])
         self._request_autoscale_view()
         return patch
 
@@ -7438,7 +7458,7 @@ such objects
 
         Returns
         -------
-        spectrum : 2-D array
+        spectrum : 2D array
             Columns are the periodograms of successive segments.
 
         freqs : 1-D array
@@ -7567,7 +7587,7 @@ such objects
             will be plotted, even if it is identically zero.
 
         aspect : {'equal', 'auto', None} or float, default: 'equal'
-            The aspect ratio of the axes.  This parameter is particularly
+            The aspect ratio of the Axes.  This parameter is particularly
             relevant for images since it determines whether data pixels are
             square.
 
@@ -7575,14 +7595,14 @@ such objects
             `.Axes.set_aspect`. See there for further details.
 
             - 'equal': Ensures an aspect ratio of 1. Pixels will be square.
-            - 'auto': The axes is kept fixed and the aspect is adjusted so
-              that the data fit in the axes. In general, this will result in
+            - 'auto': The Axes is kept fixed and the aspect is adjusted so
+              that the data fit in the Axes. In general, this will result in
               non-square pixels.
             - *None*: Use :rc:`image.aspect`.
 
         origin : {'upper', 'lower'}, default: :rc:`image.origin`
             Place the [0, 0] index of the array in the upper left or lower left
-            corner of the axes. The convention 'upper' is typically used for
+            corner of the Axes. The convention 'upper' is typically used for
             matrices and images.
 
         Returns
@@ -7621,8 +7641,11 @@ such objects
             if 'interpolation' in kwargs:
                 raise TypeError(
                     "spy() got an unexpected keyword argument 'interpolation'")
-            ret = self.imshow(mask, interpolation='nearest', aspect=aspect,
-                              origin=origin, **kwargs)
+            if 'norm' not in kwargs:
+                kwargs['norm'] = mcolors.NoNorm()
+            ret = self.imshow(mask, interpolation='nearest',
+                              aspect=aspect, origin=origin,
+                              **kwargs)
         else:
             if hasattr(Z, 'tocoo'):
                 c = Z.tocoo()

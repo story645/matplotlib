@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 
 import matplotlib as mpl
-from matplotlib import backend_tools, cbook
+from matplotlib import _api, backend_tools, cbook
 from matplotlib._pylab_helpers import Gcf
 from matplotlib.backend_bases import (
     _Backend, FigureCanvasBase, FigureManagerBase, NavigationToolbar2,
@@ -88,58 +88,6 @@ class TimerGTK3(TimerBase):
 class FigureCanvasGTK3(Gtk.DrawingArea, FigureCanvasBase):
     required_interactive_framework = "gtk3"
     _timer_cls = TimerGTK3
-
-    keyvald = {65507: 'control',
-               65505: 'shift',
-               65513: 'alt',
-               65508: 'control',
-               65506: 'shift',
-               65514: 'alt',
-               65361: 'left',
-               65362: 'up',
-               65363: 'right',
-               65364: 'down',
-               65307: 'escape',
-               65470: 'f1',
-               65471: 'f2',
-               65472: 'f3',
-               65473: 'f4',
-               65474: 'f5',
-               65475: 'f6',
-               65476: 'f7',
-               65477: 'f8',
-               65478: 'f9',
-               65479: 'f10',
-               65480: 'f11',
-               65481: 'f12',
-               65300: 'scroll_lock',
-               65299: 'break',
-               65288: 'backspace',
-               65293: 'enter',
-               65379: 'insert',
-               65535: 'delete',
-               65360: 'home',
-               65367: 'end',
-               65365: 'pageup',
-               65366: 'pagedown',
-               65438: '0',
-               65436: '1',
-               65433: '2',
-               65435: '3',
-               65430: '4',
-               65437: '5',
-               65432: '6',
-               65429: '7',
-               65431: '8',
-               65434: '9',
-               65451: '+',
-               65453: '-',
-               65450: '*',
-               65455: '/',
-               65439: 'dec',
-               65421: 'enter',
-               }
-
     # Setting this as a static constant prevents
     # this resulting expression from leaking
     event_mask = (Gdk.EventMask.BUTTON_PRESS_MASK
@@ -188,7 +136,7 @@ class FigureCanvasGTK3(Gtk.DrawingArea, FigureCanvasBase):
         if renderer_init:
             renderer_init()
 
-    @cbook.deprecated("3.3", alternative="__init__")
+    @_api.deprecated("3.3", alternative="__init__")
     def _renderer_init(self):
         pass
 
@@ -259,13 +207,9 @@ class FigureCanvasGTK3(Gtk.DrawingArea, FigureCanvasBase):
         self.draw_idle()
 
     def _get_key(self, event):
-        if event.keyval in self.keyvald:
-            key = self.keyvald[event.keyval]
-        elif event.keyval < 256:
-            key = chr(event.keyval)
-        else:
-            key = None
-
+        key = cbook._unikey_or_keysym_to_mplkey(
+            chr(Gdk.keyval_to_unicode(event.keyval)),
+            Gdk.keyval_name(event.keyval))
         modifiers = [
                      (Gdk.ModifierType.MOD4_MASK, 'super'),
                      (Gdk.ModifierType.MOD1_MASK, 'alt'),
@@ -274,7 +218,6 @@ class FigureCanvasGTK3(Gtk.DrawingArea, FigureCanvasBase):
         for key_mask, prefix in modifiers:
             if event.state & key_mask:
                 key = '{0}+{1}'.format(prefix, key)
-
         return key
 
     def configure_event(self, widget, event):
@@ -489,6 +432,9 @@ class FigureManagerGTK3(FigureManagerBase):
 
 
 class NavigationToolbar2GTK3(NavigationToolbar2, Gtk.Toolbar):
+    ctx = cbook.deprecated("3.3")(property(
+        lambda self: self.canvas.get_property("window").cairo_create()))
+
     def __init__(self, canvas, window):
         self.win = window
         GObject.GObject.__init__(self)
@@ -540,11 +486,6 @@ class NavigationToolbar2GTK3(NavigationToolbar2, Gtk.Toolbar):
         self.show_all()
 
         NavigationToolbar2.__init__(self, canvas)
-
-    @cbook.deprecated("3.3")
-    @property
-    def ctx(self):
-        return self.canvas.get_property("window").cairo_create()
 
     def set_message(self, s):
         escaped = GLib.markup_escape_text(s)
@@ -714,7 +655,7 @@ class ToolbarGTK3(ToolContainerBase, Gtk.Box):
         self._message.set_label(s)
 
 
-@cbook.deprecated("3.3")
+@_api.deprecated("3.3")
 class StatusbarGTK3(StatusbarBase, Gtk.Statusbar):
     def __init__(self, *args, **kwargs):
         StatusbarBase.__init__(self, *args, **kwargs)
@@ -752,57 +693,6 @@ class SetCursorGTK3(backend_tools.SetCursorBase):
 
 
 class ConfigureSubplotsGTK3(backend_tools.ConfigureSubplotsBase, Gtk.Window):
-    @cbook.deprecated("3.2")
-    @property
-    def window(self):
-        if not hasattr(self, "_window"):
-            self._window = None
-        return self._window
-
-    @window.setter
-    @cbook.deprecated("3.2")
-    def window(self, window):
-        self._window = window
-
-    @cbook.deprecated("3.2")
-    def init_window(self):
-        if self.window:
-            return
-        self.window = Gtk.Window(title="Subplot Configuration Tool")
-
-        try:
-            self.window.window.set_icon_from_file(window_icon)
-        except Exception:
-            # we presumably already logged a message on the
-            # failure of the main plot, don't keep reporting
-            pass
-
-        self.vbox = Gtk.Box()
-        self.vbox.set_property("orientation", Gtk.Orientation.VERTICAL)
-        self.window.add(self.vbox)
-        self.vbox.show()
-        self.window.connect('destroy', self.destroy)
-
-        toolfig = Figure(figsize=(6, 3))
-        canvas = self.figure.canvas.__class__(toolfig)
-
-        toolfig.subplots_adjust(top=0.9)
-        SubplotTool(self.figure, toolfig)
-
-        w = int(toolfig.bbox.width)
-        h = int(toolfig.bbox.height)
-
-        self.window.set_default_size(w, h)
-
-        canvas.show()
-        self.vbox.pack_start(canvas, True, True, 0)
-        self.window.show()
-
-    @cbook.deprecated("3.2")
-    def destroy(self, *args):
-        self.window.destroy()
-        self.window = None
-
     def _get_canvas(self, fig):
         return self.canvas.__class__(fig)
 
@@ -941,10 +831,6 @@ Toolbar = ToolbarGTK3
 class _BackendGTK3(_Backend):
     FigureCanvas = FigureCanvasGTK3
     FigureManager = FigureManagerGTK3
-
-    @staticmethod
-    def trigger_manager_draw(manager):
-        manager.canvas.draw_idle()
 
     @staticmethod
     def mainloop():

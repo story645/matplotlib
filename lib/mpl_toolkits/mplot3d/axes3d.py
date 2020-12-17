@@ -118,20 +118,20 @@ class Axes3D(Axes):
             self._zcid = None
 
         self.mouse_init()
-        self.figure.canvas.mpl_connect(
-            'motion_notify_event', self._on_move),
-        self.figure.canvas.mpl_connect(
-            'button_press_event', self._button_press),
-        self.figure.canvas.mpl_connect(
-            'button_release_event', self._button_release),
+        self.figure.canvas.callbacks._pickled_cids.update({
+            self.figure.canvas.mpl_connect(
+                'motion_notify_event', self._on_move),
+            self.figure.canvas.mpl_connect(
+                'button_press_event', self._button_press),
+            self.figure.canvas.mpl_connect(
+                'button_release_event', self._button_release),
+        })
         self.set_top_view()
 
         self.patch.set_linewidth(0)
         # Calculate the pseudo-data width and height
         pseudo_bbox = self.transLimits.inverted().transform([(0, 0), (1, 1)])
         self._pseudo_w, self._pseudo_h = pseudo_bbox[1] - pseudo_bbox[0]
-
-        self.figure.add_axes(self)
 
         # mplot3d currently manages its own spines and needs these turned off
         # for bounding box calculations
@@ -186,20 +186,12 @@ class Axes3D(Axes):
     get_zgridlines = _axis_method_wrapper("zaxis", "get_gridlines")
     get_zticklines = _axis_method_wrapper("zaxis", "get_ticklines")
 
-    @cbook.deprecated("3.1", alternative="xaxis", pending=True)
-    @property
-    def w_xaxis(self):
-        return self.xaxis
-
-    @cbook.deprecated("3.1", alternative="yaxis", pending=True)
-    @property
-    def w_yaxis(self):
-        return self.yaxis
-
-    @cbook.deprecated("3.1", alternative="zaxis", pending=True)
-    @property
-    def w_zaxis(self):
-        return self.zaxis
+    w_xaxis = cbook.deprecated("3.1", alternative="xaxis", pending=True)(
+        property(lambda self: self.xaxis))
+    w_yaxis = cbook.deprecated("3.1", alternative="yaxis", pending=True)(
+        property(lambda self: self.yaxis))
+    w_zaxis = cbook.deprecated("3.1", alternative="zaxis", pending=True)(
+        property(lambda self: self.zaxis))
 
     def _get_axis_list(self):
         return super()._get_axis_list() + (self.zaxis, )
@@ -379,8 +371,11 @@ class Axes3D(Axes):
         # in the superclass, we would go through and actually deal with axis
         # scales and box/datalim. Those are all irrelevant - all we need to do
         # is make sure our coordinate system is square.
-        figW, figH = self.get_figure().get_size_inches()
-        fig_aspect = figH / figW
+        trans = self.get_figure().transSubfigure
+        bb = mtransforms.Bbox.from_bounds(0, 0, 1, 1).transformed(trans)
+        # this is the physical aspect of the panel (or figure):
+        fig_aspect = bb.height / bb.width
+
         box_aspect = 1
         pb = position.frozen()
         pb1 = pb.shrunk_to_aspect(box_aspect, pb, fig_aspect)
@@ -406,36 +401,71 @@ class Axes3D(Axes):
 
         # add the projection matrix to the renderer
         self.M = self.get_proj()
-        renderer.M = self.M
-        renderer.vvec = self.vvec
-        renderer.eye = self.eye
-        renderer.get_axis_position = self.get_axis_position
+        props3d = {
+            # To raise a deprecation, we need to wrap the attribute in a
+            # function, but binding that to an instance does not work, as you
+            # would end up with an instance-specific method. Properties are
+            # class-level attributes which *are* functions, so we do that
+            # instead.
+            # This dictionary comprehension creates deprecated properties for
+            # the attributes listed below, and they are temporarily attached to
+            # the _class_ in the `_setattr_cm` call. These can both be removed
+            # once the deprecation expires
+            name: cbook.deprecated('3.4', name=name,
+                                   alternative=f'self.axes.{name}')(
+                property(lambda self, _value=getattr(self, name): _value))
+            for name in ['M', 'vvec', 'eye', 'get_axis_position']
+        }
 
-        # Calculate projection of collections and patches and zorder them.
-        # Make sure they are drawn above the grids.
-        zorder_offset = max(axis.get_zorder()
-                            for axis in self._get_axis_list()) + 1
-        for i, col in enumerate(
-                sorted(self.collections,
-                       key=lambda col: col.do_3d_projection(renderer),
-                       reverse=True)):
-            col.zorder = zorder_offset + i
-        for i, patch in enumerate(
-                sorted(self.patches,
-                       key=lambda patch: patch.do_3d_projection(renderer),
-                       reverse=True)):
-            patch.zorder = zorder_offset + i
+        with cbook._setattr_cm(type(renderer), **props3d):
+            def do_3d_projection(artist):
+                """
+                Call `do_3d_projection` on an *artist*, and warn if passing
+                *renderer*.
 
-        if self._axis3don:
-            # Draw panes first
-            for axis in self._get_axis_list():
-                axis.draw_pane(renderer)
-            # Then axes
-            for axis in self._get_axis_list():
-                axis.draw(renderer)
+                For our Artists, never pass *renderer*. For external Artists,
+                in lieu of more complicated signature parsing, always pass
+                *renderer* and raise a warning.
+                """
 
-        # Then rest
-        super().draw(renderer)
+                if artist.__module__ == 'mpl_toolkits.mplot3d.art3d':
+                    # Our 3D Artists have deprecated the renderer parameter, so
+                    # avoid passing it to them; call this directly once the
+                    # deprecation has expired.
+                    return artist.do_3d_projection()
+
+                cbook.warn_deprecated(
+                    "3.4",
+                    message="The 'renderer' parameter of "
+                    "do_3d_projection() was deprecated in Matplotlib "
+                    "%(since)s and will be removed %(removal)s.")
+                return artist.do_3d_projection(renderer)
+
+            # Calculate projection of collections and patches and zorder them.
+            # Make sure they are drawn above the grids.
+            zorder_offset = max(axis.get_zorder()
+                                for axis in self._get_axis_list()) + 1
+            for i, col in enumerate(
+                    sorted(self.collections,
+                           key=do_3d_projection,
+                           reverse=True)):
+                col.zorder = zorder_offset + i
+            for i, patch in enumerate(
+                    sorted(self.patches,
+                           key=do_3d_projection,
+                           reverse=True)):
+                patch.zorder = zorder_offset + i
+
+            if self._axis3don:
+                # Draw panes first
+                for axis in self._get_axis_list():
+                    axis.draw_pane(renderer)
+                # Then axes
+                for axis in self._get_axis_list():
+                    axis.draw(renderer)
+
+            # Then rest
+            super().draw(renderer)
 
     def get_axis_position(self):
         vals = self.get_w_lims()
@@ -945,7 +975,7 @@ class Axes3D(Axes):
 
         Notes
         -----
-        This function is merely provided for completeness, but 3d axes do not
+        This function is merely provided for completeness, but 3D axes do not
         support dates for ticks, and so this may not work as expected.
         """)
 
@@ -1060,7 +1090,7 @@ class Axes3D(Axes):
 
     def can_zoom(self):
         """
-        Return *True* if this axes supports the zoom box button functionality.
+        Return whether this axes supports the zoom box button functionality.
 
         3D axes objects do not use the zoom box button.
         """
@@ -1068,7 +1098,7 @@ class Axes3D(Axes):
 
     def can_pan(self):
         """
-        Return *True* if this axes supports the pan/zoom button functionality.
+        Return whether this axes supports the pan/zoom button functionality.
 
         3D axes objects do not use the pan/zoom button.
         """
@@ -1078,7 +1108,7 @@ class Axes3D(Axes):
         # docstring inherited.
 
         super().cla()
-        self.zaxis.cla()
+        self.zaxis.clear()
 
         if self._sharez is not None:
             self.zaxis.major = self._sharez.zaxis.major
@@ -1208,11 +1238,25 @@ class Axes3D(Axes):
             self.stale = True
             self.figure.canvas.draw_idle()
 
-#        elif self.button_pressed == 2:
+        elif self.button_pressed == 2:
             # pan view
+            # get the x and y pixel coords
+            if dx == 0 and dy == 0:
+                return
+            minx, maxx, miny, maxy, minz, maxz = self.get_w_lims()
+            dx = 1-((w - dx)/w)
+            dy = 1-((h - dy)/h)
+            elev, azim = np.deg2rad(self.elev), np.deg2rad(self.azim)
             # project xv, yv, zv -> xw, yw, zw
+            dxx = (maxx-minx)*(dy*np.sin(elev)*np.cos(azim) + dx*np.sin(azim))
+            dyy = (maxy-miny)*(-dx*np.cos(azim) + dy*np.sin(elev)*np.sin(azim))
+            dzz = (maxz-minz)*(-dy*np.cos(elev))
             # pan
-#            pass
+            self.set_xlim3d(minx + dxx, maxx + dxx)
+            self.set_ylim3d(miny + dyy, maxy + dyy)
+            self.set_zlim3d(minz + dzz, maxz + dzz)
+            self.get_proj()
+            self.figure.canvas.draw_idle()
 
         # Zoom
         elif self.button_pressed in self._zoom_btn:
@@ -1458,7 +1502,7 @@ class Axes3D(Axes):
         Create a surface plot.
 
         By default it will be colored in shades of a solid color, but it also
-        supports color mapping by supplying the *cmap* argument.
+        supports colormapping by supplying the *cmap* argument.
 
         .. note::
 
@@ -1480,7 +1524,7 @@ class Axes3D(Axes):
 
         Parameters
         ----------
-        X, Y, Z : 2d arrays
+        X, Y, Z : 2D arrays
             Data values.
 
         rcount, ccount : int
@@ -1657,7 +1701,7 @@ class Axes3D(Axes):
 
         Parameters
         ----------
-        polygons: list of (M_i, 3) array-like, or (..., M, 3) array-like
+        polygons : list of (M_i, 3) array-like, or (..., M, 3) array-like
             A sequence of polygons to compute normals for, which can have
             varying numbers of vertices. If the polygons all have the same
             number of vertices and array is passed, then the operation will
@@ -1665,7 +1709,7 @@ class Axes3D(Axes):
 
         Returns
         -------
-        normals: (..., 3) array-like
+        normals : (..., 3) array-like
             A normal vector estimated for the polygon.
 
         """
@@ -1736,7 +1780,7 @@ class Axes3D(Axes):
 
         Parameters
         ----------
-        X, Y, Z : 2d arrays
+        X, Y, Z : 2D arrays
             Data values.
 
         rcount, ccount : int
@@ -2257,7 +2301,7 @@ class Axes3D(Axes):
             - A sequence of colors of length n.
             - A sequence of n numbers to be mapped to colors using *cmap* and
               *norm*.
-            - A 2-D array in which the rows are RGB or RGBA.
+            - A 2D array in which the rows are RGB or RGBA.
 
             For more details see the *c* argument of `~.axes.Axes.scatter`.
         depthshade : bool, default: True
@@ -2684,7 +2728,7 @@ pivot='tail', normalize=False, **kwargs)
         Parameters
         ----------
         filled : 3D np.array of bool
-            A 3d array of values, with truthy values indicating which voxels
+            A 3D array of values, with truthy values indicating which voxels
             to fill
 
         x, y, z : 3D np.array, optional

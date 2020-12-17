@@ -171,6 +171,7 @@ class MathtextBackendAgg(MathtextBackend):
         return backend_agg.get_hinting_flag()
 
 
+@_api.deprecated("3.4", alternative="mathtext.math_to_image")
 class MathtextBackendBitmap(MathtextBackendAgg):
     def get_results(self, box, used_characters):
         ox, oy, width, height, depth, image, characters = \
@@ -178,7 +179,7 @@ class MathtextBackendBitmap(MathtextBackendAgg):
         return image, depth
 
 
-@cbook.deprecated("3.4", alternative="MathtextBackendPath")
+@_api.deprecated("3.4", alternative="MathtextBackendPath")
 class MathtextBackendPs(MathtextBackend):
     """
     Store information to write a mathtext rendering to the PostScript backend.
@@ -221,7 +222,7 @@ class MathtextBackendPs(MathtextBackend):
                               used_characters)
 
 
-@cbook.deprecated("3.4", alternative="MathtextBackendPath")
+@_api.deprecated("3.4", alternative="MathtextBackendPath")
 class MathtextBackendPdf(MathtextBackend):
     """Store information to write a mathtext rendering to the PDF backend."""
 
@@ -252,7 +253,7 @@ class MathtextBackendPdf(MathtextBackend):
                                used_characters)
 
 
-@cbook.deprecated("3.4", alternative="MathtextBackendPath")
+@_api.deprecated("3.4", alternative="MathtextBackendPath")
 class MathtextBackendSvg(MathtextBackend):
     """
     Store information to write a mathtext rendering to the SVG
@@ -311,7 +312,7 @@ class MathtextBackendPath(MathtextBackend):
                             self.rects)
 
 
-@cbook.deprecated("3.4", alternative="MathtextBackendPath")
+@_api.deprecated("3.4", alternative="MathtextBackendPath")
 class MathtextBackendCairo(MathtextBackend):
     """
     Store information to write a mathtext rendering to the Cairo
@@ -358,7 +359,7 @@ class MathTextWarning(Warning):
     pass
 
 
-@cbook.deprecated("3.3")
+@_api.deprecated("3.3")
 class GlueSpec:
     """See `Glue`."""
 
@@ -383,12 +384,12 @@ class GlueSpec:
         return cls._types[glue_type]
 
 
-with cbook._suppress_matplotlib_deprecation_warning():
+with _api.suppress_matplotlib_deprecation_warning():
     GlueSpec._types = {k: GlueSpec(**v._asdict())
                        for k, v in _mathtext._GlueSpec._named.items()}
 
 
-@cbook.deprecated("3.4")
+@_api.deprecated("3.4")
 def ship(ox, oy, box):
     _mathtext.ship(ox, oy, box)
 
@@ -432,6 +433,19 @@ class MathTextParser:
         The results are cached, so multiple calls to `parse`
         with the same expression should be fast.
         """
+        if _force_standard_ps_fonts:
+            cbook.warn_deprecated(
+                "3.4",
+                removal="3.5",
+                message=(
+                    "Mathtext using only standard PostScript fonts has "
+                    "been likely to produce wrong output for a while, "
+                    "has been deprecated in %(since)s and will be removed "
+                    "in %(removal)s, after which ps.useafm will have no "
+                    "effect on mathtext."
+                )
+            )
+
         # lru_cache can't decorate parse() directly because the ps.useafm and
         # mathtext.fontset rcParams also affect the parse (e.g. by affecting
         # the glyph metrics).
@@ -460,8 +474,11 @@ class MathTextParser:
         font_output.set_canvas_size(box.width, box.height, box.depth)
         return font_output.get_results(box)
 
+    @_api.deprecated("3.4", alternative="mathtext.math_to_image")
     def to_mask(self, texstr, dpi=120, fontsize=14):
         r"""
+        Convert a mathtext string to a grayscale array and depth.
+
         Parameters
         ----------
         texstr : str
@@ -483,8 +500,11 @@ class MathTextParser:
         ftimage, depth = self.parse(texstr, dpi=dpi, prop=prop)
         return np.asarray(ftimage), depth
 
+    @_api.deprecated("3.4", alternative="mathtext.math_to_image")
     def to_rgba(self, texstr, color='black', dpi=120, fontsize=14):
         r"""
+        Convert a mathtext string to an RGBA array and depth.
+
         Parameters
         ----------
         texstr : str
@@ -513,6 +533,7 @@ class MathTextParser:
         RGBA[:, :, 3] = x
         return RGBA, depth
 
+    @_api.deprecated("3.4", alternative="mathtext.math_to_image")
     def to_png(self, filename, texstr, color='black', dpi=120, fontsize=14):
         r"""
         Render a tex expression to a PNG file.
@@ -540,8 +561,11 @@ class MathTextParser:
         Image.fromarray(rgba).save(filename, format="png")
         return depth
 
+    @_api.deprecated("3.4", alternative="mathtext.math_to_image")
     def get_depth(self, texstr, dpi=120, fontsize=14):
         r"""
+        Get the depth of a mathtext string.
+
         Parameters
         ----------
         texstr : str

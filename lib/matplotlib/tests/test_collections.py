@@ -36,8 +36,7 @@ def generate_EventCollection_plot():
                            antialiased=antialiased
                            )
 
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
+    fig, ax = plt.subplots()
     ax.add_collection(coll)
     ax.set_title('EventCollection: default')
     props = {'positions': positions,
@@ -366,7 +365,7 @@ def test_polycollection_close():
         [[3., 0.], [3., 1.], [4., 1.], [4., 0.]]]
 
     fig = plt.figure()
-    ax = Axes3D(fig)
+    ax = fig.add_axes(Axes3D(fig))
 
     colors = ['r', 'g', 'b', 'y', 'k']
     zpos = list(range(5))
@@ -519,8 +518,7 @@ def test_joinstyle():
 
 @image_comparison(['cap_and_joinstyle.png'])
 def test_cap_and_joinstyle_image():
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
+    fig, ax = plt.subplots()
     ax.set_xlim([-0.5, 1.5])
     ax.set_ylim([-0.5, 2.5])
 
@@ -549,7 +547,7 @@ def test_scatter_post_alpha():
 def test_scatter_alpha_array():
     x = np.arange(5)
     alpha = x / 5
-    # With color mapping.
+    # With colormapping.
     fig, (ax0, ax1) = plt.subplots(2)
     sc0 = ax0.scatter(x, x, c=x, alpha=alpha)
     sc1 = ax1.scatter(x, x, c=x)
@@ -557,14 +555,14 @@ def test_scatter_alpha_array():
     plt.draw()
     assert_array_equal(sc0.get_facecolors()[:, -1], alpha)
     assert_array_equal(sc1.get_facecolors()[:, -1], alpha)
-    # Without color mapping.
+    # Without colormapping.
     fig, (ax0, ax1) = plt.subplots(2)
     sc0 = ax0.scatter(x, x, color=['r', 'g', 'b', 'c', 'm'], alpha=alpha)
     sc1 = ax1.scatter(x, x, color='r', alpha=alpha)
     plt.draw()
     assert_array_equal(sc0.get_facecolors()[:, -1], alpha)
     assert_array_equal(sc1.get_facecolors()[:, -1], alpha)
-    # Without color mapping, and set alpha afterward.
+    # Without colormapping, and set alpha afterward.
     fig, (ax0, ax1) = plt.subplots(2)
     sc0 = ax0.scatter(x, x, color=['r', 'g', 'b', 'c', 'm'])
     sc0.set_alpha(alpha)

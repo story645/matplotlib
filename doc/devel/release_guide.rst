@@ -96,6 +96,13 @@ Merge ``*-doc`` branch
 Merge the most recent 'doc' branch (e.g., ``v3.2.0-doc``) into the branch you
 are going to tag on and delete the doc branch on GitHub.
 
+Update supported versions in Security Policy
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When making major or minor releases, update the supported versions in the
+Security Policy in :file:`SECURITY.md`.  Commonly, this may be one or two
+previous minor releases, but is dependent on release managers.
+
 Update "What's New" and "API changes"
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -313,7 +320,7 @@ build the docs from the ``ver-doc`` branch.  An easy way to arrange this is::
   pip install -r requirements/doc/doc-requirements.txt
   git checkout v2.0.0-doc
   git clean -xfd
-  make -Cdoc O=-j$(nproc) html latexpdf LATEXMKOPTS="-silent -f"
+  make -Cdoc O="-Ainclude_analytics=True -j$(nproc)" html latexpdf LATEXMKOPTS="-silent -f"
 
 which will build both the html and pdf version of the documentation.
 

@@ -12,8 +12,10 @@ import pytest
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.testing.compare import compare_images, ImageComparisonFailure
-from matplotlib.testing.decorators import image_comparison, _image_directories
 from matplotlib.backends.backend_pgf import PdfPages, common_texification
+from matplotlib.testing.decorators import (_image_directories,
+                                           check_figures_equal,
+                                           image_comparison)
 
 baseline_dir, result_dir = _image_directories(lambda: 'dummy func')
 
@@ -44,11 +46,14 @@ needs_pdflatex = pytest.mark.skipif(not check_for('pdflatex'),
                                     reason='pdflatex + pgf is required')
 needs_lualatex = pytest.mark.skipif(not check_for('lualatex'),
                                     reason='lualatex + pgf is required')
+needs_ghostscript = pytest.mark.skipif(
+    "eps" not in mpl.testing.compare.converter,
+    reason="This test needs a ghostscript installation")
 
 
-def _has_sfmath():
+def _has_tex_package(package):
     return (shutil.which("kpsewhich")
-            and subprocess.run(["kpsewhich", "sfmath.sty"],
+            and subprocess.run(["kpsewhich", f"{package}.sty"],
                                stdout=subprocess.PIPE).returncode == 0)
 
 
@@ -113,6 +118,7 @@ def test_xelatex():
 
 # test compiling a figure to pdf with pdflatex
 @needs_pdflatex
+@pytest.mark.skipif(not _has_tex_package('ucs'), reason='needs ucs.sty')
 @pytest.mark.backend('pgf')
 @image_comparison(['pgf_pdflatex.pdf'], style='default')
 def test_pdflatex():
@@ -132,7 +138,6 @@ def test_pdflatex():
 # test updating the rc parameters for each figure
 @needs_xelatex
 @needs_pdflatex
-@pytest.mark.skipif(not _has_sfmath(), reason='needs sfmath.sty')
 @pytest.mark.style('default')
 @pytest.mark.backend('pgf')
 def test_rcupdate():
@@ -154,6 +159,10 @@ def test_rcupdate():
     tol = [6, 0]
     for i, rc_set in enumerate(rc_sets):
         with mpl.rc_context(rc_set):
+            for substring, pkg in [('sfmath', 'sfmath'), ('utf8x', 'ucs')]:
+                if (substring in mpl.rcParams['pgf.preamble']
+                        and not _has_tex_package(pkg)):
+                    pytest.skip(f'needs {pkg}.sty')
             create_figure()
             compare_figure('pgf_rcupdate%d.pdf' % (i + 1), tol=tol[i])
 
@@ -163,16 +172,11 @@ def test_rcupdate():
 @pytest.mark.style('default')
 @pytest.mark.backend('pgf')
 def test_pathclip():
-    rc_xelatex = {'font.family': 'serif',
-                  'pgf.rcfonts': False}
-    mpl.rcParams.update(rc_xelatex)
-
-    plt.figure()
+    mpl.rcParams.update({'font.family': 'serif', 'pgf.rcfonts': False})
     plt.plot([0., 1e100], [0., 1e100])
     plt.xlim(0, 1)
     plt.ylim(0, 1)
-    # this test passes if compiling/saving to pdf works (no image comparison)
-    plt.savefig(os.path.join(result_dir, "pgf_pathclip.pdf"))
+    plt.savefig(BytesIO(), format="pdf")  # No image comparison.
 
 
 # test mixed mode rendering
@@ -180,12 +184,8 @@ def test_pathclip():
 @pytest.mark.backend('pgf')
 @image_comparison(['pgf_mixedmode.pdf'], style='default')
 def test_mixedmode():
-    rc_xelatex = {'font.family': 'serif',
-                  'pgf.rcfonts': False}
-    mpl.rcParams.update(rc_xelatex)
-
+    mpl.rcParams.update({'font.family': 'serif', 'pgf.rcfonts': False})
     Y, X = np.ogrid[-1:1:40j, -1:1:40j]
-    plt.figure()
     plt.pcolor(X**2 + Y**2).set_rasterized(True)
 
 
@@ -194,18 +194,11 @@ def test_mixedmode():
 @pytest.mark.style('default')
 @pytest.mark.backend('pgf')
 def test_bbox_inches():
-    rc_xelatex = {'font.family': 'serif',
-                  'pgf.rcfonts': False}
-    mpl.rcParams.update(rc_xelatex)
-
-    Y, X = np.ogrid[-1:1:40j, -1:1:40j]
-    fig = plt.figure()
-    ax1 = fig.add_subplot(121)
+    mpl.rcParams.update({'font.family': 'serif', 'pgf.rcfonts': False})
+    fig, (ax1, ax2) = plt.subplots(1, 2)
     ax1.plot(range(5))
-    ax2 = fig.add_subplot(122)
     ax2.plot(range(5))
     plt.tight_layout()
-
     bbox = ax1.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
     compare_figure('pgf_bbox_inches.pdf', savefig_kwargs={'bbox_inches': bbox},
                    tol=0)
@@ -324,3 +317,32 @@ def test_bbox_inches_tight(tmpdir):
     ax.imshow([[0, 1], [2, 3]])
     fig.savefig(os.path.join(tmpdir, "test.pdf"), backend="pgf",
                 bbox_inches="tight")
+
+
+@needs_xelatex
+@needs_ghostscript
+def test_png():
+    # Just a smoketest.
+    fig, ax = plt.subplots()
+    fig.savefig(BytesIO(), format="png", backend="pgf")
+
+
+@needs_xelatex
+def test_unknown_font(caplog):
+    with caplog.at_level("WARNING"):
+        mpl.rcParams["font.family"] = "this-font-does-not-exist"
+        plt.figtext(.5, .5, "hello, world")
+        plt.savefig(BytesIO(), format="pgf")
+    assert "Ignoring unknown font: this-font-does-not-exist" in [
+        r.getMessage() for r in caplog.records]
+
+
+@check_figures_equal(extensions=["pdf"])
+@pytest.mark.parametrize("texsystem", ("pdflatex", "xelatex", "lualatex"))
+@pytest.mark.backend("pgf")
+def test_minus_signs_with_tex(fig_test, fig_ref, texsystem):
+    if not check_for(texsystem):
+        pytest.skip(texsystem + ' + pgf is required')
+    mpl.rcParams["pgf.texsystem"] = texsystem
+    fig_test.text(.5, .5, "$-1$")
+    fig_ref.text(.5, .5, "$\N{MINUS SIGN}1$")

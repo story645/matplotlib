@@ -74,18 +74,16 @@ def test_date_empty():
     # make sure we do the right thing when told to plot dates even
     # if no date data has been presented, cf
     # http://sourceforge.net/tracker/?func=detail&aid=2850075&group_id=80706&atid=560720
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
+    fig, ax = plt.subplots()
     ax.xaxis_date()
 
 
 @image_comparison(['date_axhspan.png'])
 def test_date_axhspan():
-    # test ax hspan with date inputs
+    # test axhspan with date inputs
     t0 = datetime.datetime(2009, 1, 20)
     tf = datetime.datetime(2009, 1, 21)
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
+    fig, ax = plt.subplots()
     ax.axhspan(t0, tf, facecolor="blue", alpha=0.25)
     ax.set_ylim(t0 - datetime.timedelta(days=5),
                 tf + datetime.timedelta(days=5))
@@ -94,11 +92,10 @@ def test_date_axhspan():
 
 @image_comparison(['date_axvspan.png'])
 def test_date_axvspan():
-    # test ax hspan with date inputs
+    # test axvspan with date inputs
     t0 = datetime.datetime(2000, 1, 20)
     tf = datetime.datetime(2010, 1, 21)
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
+    fig, ax = plt.subplots()
     ax.axvspan(t0, tf, facecolor="blue", alpha=0.25)
     ax.set_xlim(t0 - datetime.timedelta(days=720),
                 tf + datetime.timedelta(days=720))
@@ -107,11 +104,10 @@ def test_date_axvspan():
 
 @image_comparison(['date_axhline.png'])
 def test_date_axhline():
-    # test ax hline with date inputs
+    # test axhline with date inputs
     t0 = datetime.datetime(2009, 1, 20)
     tf = datetime.datetime(2009, 1, 31)
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
+    fig, ax = plt.subplots()
     ax.axhline(t0, color="blue", lw=3)
     ax.set_ylim(t0 - datetime.timedelta(days=5),
                 tf + datetime.timedelta(days=5))
@@ -120,11 +116,10 @@ def test_date_axhline():
 
 @image_comparison(['date_axvline.png'])
 def test_date_axvline():
-    # test ax hline with date inputs
+    # test axvline with date inputs
     t0 = datetime.datetime(2000, 1, 20)
     tf = datetime.datetime(2000, 1, 21)
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
+    fig, ax = plt.subplots()
     ax.axvline(t0, color="red", lw=3)
     ax.set_xlim(t0 - datetime.timedelta(days=5),
                 tf + datetime.timedelta(days=5))
@@ -140,8 +135,7 @@ def test_too_many_date_ticks(caplog):
     caplog.set_level("WARNING")
     t0 = datetime.datetime(2000, 1, 20)
     tf = datetime.datetime(2000, 1, 20)
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
+    fig, ax = plt.subplots()
     with pytest.warns(UserWarning) as rec:
         ax.set_xlim((t0, tf), auto=True)
         assert len(rec) == 1
@@ -181,7 +175,7 @@ def test_RRuleLocator():
     tf = datetime.datetime(6000, 1, 1)
 
     fig = plt.figure()
-    ax = plt.subplot(111)
+    ax = plt.subplot()
     ax.set_autoscale_on(True)
     ax.plot([t0, tf], [0.0, 1.0], marker='o')
 
@@ -214,7 +208,7 @@ def test_DateFormatter():
     tf = datetime.datetime(2001, 1, 1, 0, 0, 1)
 
     fig = plt.figure()
-    ax = plt.subplot(111)
+    ax = plt.subplot()
     ax.set_autoscale_on(True)
     ax.plot([t0, tf], [0.0, 1.0], marker='o')
 
@@ -270,6 +264,26 @@ def test_date_formatter_callable():
     formatter = mdates.AutoDateFormatter(_Locator())
     formatter.scaled[-10] = callable_formatting_function
     assert formatter([datetime.datetime(2014, 12, 25)]) == ['25-12//2014']
+
+
+@pytest.mark.parametrize('delta, expected', [
+    (datetime.timedelta(weeks=52 * 200),
+     [r'$\mathdefault{%d}$' % (year,) for year in range(1990, 2171, 20)]),
+    (datetime.timedelta(days=30),
+     [r'$\mathdefault{Jan %02d 1990}$' % (day,) for day in range(1, 32, 3)]),
+    (datetime.timedelta(hours=20),
+     [r'$\mathdefault{%02d:00:00}$' % (hour,) for hour in range(0, 21, 2)]),
+])
+def test_date_formatter_usetex(delta, expected):
+    d1 = datetime.datetime(1990, 1, 1)
+    d2 = d1 + delta
+
+    locator = mdates.AutoDateLocator(interval_multiples=False)
+    locator.create_dummy_axis()
+    locator.set_view_interval(mdates.date2num(d1), mdates.date2num(d2))
+
+    formatter = mdates.AutoDateFormatter(locator, usetex=True)
+    assert [formatter(loc) for loc in locator()] == expected
 
 
 def test_drange():
@@ -509,6 +523,39 @@ def test_concise_formatter():
         assert strings == expected
 
 
+@pytest.mark.parametrize('t_delta, expected', [
+    (datetime.timedelta(weeks=52 * 200),
+     ['$\\mathdefault{%d}$' % (t, ) for t in range(1980, 2201, 20)]),
+    (datetime.timedelta(days=40),
+     ['$\\mathdefault{Jan}$', '$\\mathdefault{05}$', '$\\mathdefault{09}$',
+      '$\\mathdefault{13}$', '$\\mathdefault{17}$', '$\\mathdefault{21}$',
+      '$\\mathdefault{25}$', '$\\mathdefault{29}$', '$\\mathdefault{Feb}$',
+      '$\\mathdefault{05}$', '$\\mathdefault{09}$']),
+    (datetime.timedelta(hours=40),
+     ['$\\mathdefault{Jan{-}01}$', '$\\mathdefault{04:00}$',
+      '$\\mathdefault{08:00}$', '$\\mathdefault{12:00}$',
+      '$\\mathdefault{16:00}$', '$\\mathdefault{20:00}$',
+      '$\\mathdefault{Jan{-}02}$', '$\\mathdefault{04:00}$',
+      '$\\mathdefault{08:00}$', '$\\mathdefault{12:00}$',
+      '$\\mathdefault{16:00}$']),
+    (datetime.timedelta(seconds=2),
+     ['$\\mathdefault{59.5}$', '$\\mathdefault{00:00}$',
+      '$\\mathdefault{00.5}$', '$\\mathdefault{01.0}$',
+      '$\\mathdefault{01.5}$', '$\\mathdefault{02.0}$',
+      '$\\mathdefault{02.5}$']),
+])
+def test_concise_formatter_usetex(t_delta, expected):
+    d1 = datetime.datetime(1997, 1, 1)
+    d2 = d1 + t_delta
+
+    locator = mdates.AutoDateLocator(interval_multiples=True)
+    locator.create_dummy_axis()
+    locator.set_view_interval(mdates.date2num(d1), mdates.date2num(d2))
+
+    formatter = mdates.ConciseDateFormatter(locator, usetex=True)
+    assert formatter.format_ticks(locator()) == expected
+
+
 def test_concise_formatter_formats():
     formats = ['%Y', '%m/%Y', 'day: %d',
                '%H hr %M min', '%H hr %M min', '%S.%f sec']
@@ -733,8 +780,7 @@ def test_date_inverted_limit():
     # test ax hline with date inputs
     t0 = datetime.datetime(2009, 1, 20)
     tf = datetime.datetime(2009, 1, 31)
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
+    fig, ax = plt.subplots()
     ax.axhline(t0, color="blue", lw=3)
     ax.set_ylim(t0 - datetime.timedelta(days=5),
                 tf + datetime.timedelta(days=5))

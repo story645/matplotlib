@@ -81,6 +81,19 @@ locator and pass it to the x or y axis instance. The relevant methods are::
 
 The default minor locator is `NullLocator`, i.e., no minor ticks on by default.
 
+.. note::
+    `Locator` instances should not be used with more than one
+    `~matplotlib.axis.Axis` or `~matplotlib.axes.Axes`. So instead of::
+
+        locator = MultipleLocator(5)
+        ax.xaxis.set_major_locator(locator)
+        ax2.xaxis.set_major_locator(locator)
+
+    do the following instead::
+
+        ax.xaxis.set_major_locator(MultipleLocator(5))
+        ax2.xaxis.set_major_locator(MultipleLocator(5))
+
 Tick formatting
 ---------------
 
@@ -293,7 +306,7 @@ class Formatter(TickHelper):
         pass
 
 
-@cbook.deprecated("3.3")
+@_api.deprecated("3.3")
 class IndexFormatter(Formatter):
     """
     Format the position x to the nearest i-th label where ``i = int(x + 0.5)``.
@@ -431,7 +444,7 @@ class StrMethodFormatter(Formatter):
         return self.fmt.format(x=x, pos=pos)
 
 
-@cbook.deprecated("3.3")
+@_api.deprecated("3.3")
 class OldScalarFormatter(Formatter):
     """
     Tick location is a plain old number.
@@ -612,7 +625,7 @@ class ScalarFormatter(Formatter):
         """
         Format *arg* with *fmt*, applying unicode minus and locale if desired.
         """
-        return self.fix_minus(locale.format_string(fmt, (arg,))
+        return self.fix_minus(locale.format_string(fmt, (arg,), True)
                               if self._useLocale else fmt % arg)
 
     def get_useMathText(self):
@@ -1070,7 +1083,7 @@ class LogFormatter(Formatter):
         fx = math.log(x) / math.log(b)
         is_x_decade = is_close_to_int(fx)
         exponent = round(fx) if is_x_decade else np.floor(fx)
-        coeff = round(x / b ** exponent)
+        coeff = round(b ** (fx - exponent))
 
         if self.labelOnlyBase and not is_x_decade:
             return ''
@@ -1154,7 +1167,7 @@ class LogFormatterMathtext(LogFormatter):
         fx = math.log(x) / math.log(b)
         is_x_decade = is_close_to_int(fx)
         exponent = round(fx) if is_x_decade else np.floor(fx)
-        coeff = round(x / b ** exponent)
+        coeff = round(b ** (fx - exponent))
         if is_x_decade:
             fx = round(fx)
 
@@ -1186,7 +1199,7 @@ class LogFormatterSciNotation(LogFormatterMathtext):
         """Return string for non-decade locations."""
         b = float(base)
         exponent = math.floor(fx)
-        coeff = b ** fx / b ** exponent
+        coeff = b ** (fx - exponent)
         if is_close_to_int(coeff):
             coeff = round(coeff)
         return r'$\mathdefault{%s%g\times%s^{%d}}$' \
@@ -1660,7 +1673,7 @@ def _if_refresh_overridden_call_and_emit_deprec(locator):
             "%(removal)s.  You are using a third-party locator that overrides "
             "the refresh() method; this locator should instead perform any "
             "required processing in __call__().")
-    with cbook._suppress_matplotlib_deprecation_warning():
+    with _api.suppress_matplotlib_deprecation_warning():
         locator.refresh()
 
 
@@ -1753,7 +1766,7 @@ class Locator(TickHelper):
         """
         return mtransforms.nonsingular(vmin, vmax)
 
-    @cbook.deprecated("3.3")
+    @_api.deprecated("3.3")
     def pan(self, numsteps):
         """Pan numticks (can be positive or negative)"""
         ticks = self()
@@ -1771,7 +1784,7 @@ class Locator(TickHelper):
         vmax += step
         self.axis.set_view_interval(vmin, vmax, ignore=True)
 
-    @cbook.deprecated("3.3")
+    @_api.deprecated("3.3")
     def zoom(self, direction):
         """Zoom in/out on axis; if direction is >0 zoom in, else zoom out."""
 
@@ -1781,7 +1794,7 @@ class Locator(TickHelper):
         step = 0.1 * interval * direction
         self.axis.set_view_interval(vmin + step, vmax - step, ignore=True)
 
-    @cbook.deprecated("3.3")
+    @_api.deprecated("3.3")
     def refresh(self):
         """Refresh internal information based on current limits."""
 
@@ -2353,6 +2366,8 @@ class LogLocator(Locator):
 
         Parameters
         ----------
+        base : float, default: 10.0
+            The base of the log used, so ticks are placed at ``base**n``.
         subs : None or str or sequence of float, default: (1.0,)
             Gives the multiples of integer powers of the base at which
             to place ticks.  The default places ticks only at
@@ -2364,7 +2379,11 @@ class LogLocator(Locator):
             placed only between integer powers; with ``'all'``, the
             integer powers are included.  A value of None is
             equivalent to ``'auto'``.
-
+        numticks : None or int, default: None
+            The maximum number of ticks to allow on a given axis. The default
+            of ``None`` will try to choose intelligently as long as this
+            Locator has already been assigned to an axis using
+            `~.axis.Axis.get_tick_space`, but otherwise falls back to 9.
         """
         if numticks is None:
             if mpl.rcParams['_internal.classic_mode']:
@@ -2472,6 +2491,13 @@ class LogLocator(Locator):
         stride = (max(math.ceil(numdec / (numticks - 1)), 1)
                   if mpl.rcParams['_internal.classic_mode'] else
                   (numdec + 1) // numticks + 1)
+
+        # if we have decided that the stride is as big or bigger than
+        # the range, clip the stride back to the available range - 1
+        # with a floor of 1.  This prevents getting axis with only 1 tick
+        # visible.
+        if stride >= numdec:
+            stride = max(1, numdec - 1)
 
         # Does subs include anything other than 1?  Essentially a hack to know
         # whether we're a major or a minor locator.
@@ -2934,7 +2960,7 @@ class AutoMinorLocator(Locator):
                                   '%s type.' % type(self))
 
 
-@cbook.deprecated("3.3")
+@_api.deprecated("3.3")
 class OldAutoLocator(Locator):
     """
     On autoscale this class picks the best MultipleLocator to set the

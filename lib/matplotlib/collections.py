@@ -119,7 +119,7 @@ class Collection(artist.Artist, cm.ScalarMappable):
             See :doc:`/gallery/lines_bars_and_markers/joinstyle` for
             a demonstration of each of the allowed values.
         antialiaseds : bool or list of bool, default: :rc:`patch.antialiased`
-            Whether each pach in the collection should be drawn with
+            Whether each patch in the collection should be drawn with
             antialiasing.
         offsets : (float, float) or list thereof, default: (0, 0)
             A vector by which to translate each patch after rendering (default
@@ -557,7 +557,7 @@ class Collection(artist.Artist, cm.ScalarMappable):
         else:
             return self._uniform_offsets
 
-    @cbook.deprecated("3.3")
+    @_api.deprecated("3.3")
     def set_offset_position(self, offset_position):
         """
         Set how offsets are applied.  If *offset_position* is 'screen'
@@ -574,7 +574,7 @@ class Collection(artist.Artist, cm.ScalarMappable):
         self._offset_position = offset_position
         self.stale = True
 
-    @cbook.deprecated("3.3")
+    @_api.deprecated("3.3")
     def get_offset_position(self):
         """
         Return how offsets are applied for the collection.  If
@@ -836,7 +836,7 @@ class Collection(artist.Artist, cm.ScalarMappable):
 
         Parameters
         ----------
-        alpha: float or array of float or None
+        alpha : float or array of float or None
             If not None, *alpha* values must be between 0 and 1, inclusive.
             If an array is provided, its length must match the number of
             elements in the collection.  Masked values and nans are not
@@ -1369,7 +1369,7 @@ class LineCollection(Collection):
         """
         Parameters
         ----------
-        segments: list of array-like
+        segments : list of array-like
             A sequence of (*line0*, *line1*, *line2*), where::
 
                 linen = (x0, y0), (x1, y1), ... (xm, ym)
@@ -1491,7 +1491,7 @@ class LineCollection(Collection):
 
 class EventCollection(LineCollection):
     """
-    A collection of locations along a single axis at which an "event" occured.
+    A collection of locations along a single axis at which an "event" occurred.
 
     The events are given by a 1-dimensional array. They do not have an
     amplitude and are displayed as parallel lines.
@@ -1795,7 +1795,7 @@ class PatchCollection(Collection):
     """
     A generic collection of patches.
 
-    This makes it easier to assign a color map to a heterogeneous
+    This makes it easier to assign a colormap to a heterogeneous
     collection of patches.
 
     This also may improve plotting speed, since PatchCollection will

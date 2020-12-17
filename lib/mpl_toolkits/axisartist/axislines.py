@@ -115,7 +115,7 @@ class AxisArtistHelper:
         def __init__(self, loc, nth_coord=None):
             """
             nth_coord = along which coordinate value varies
-            in 2d, nth_coord = 0 ->  x axis, nth_coord = 1 -> y axis
+            in 2D, nth_coord = 0 ->  x axis, nth_coord = 1 -> y axis
             """
             _api.check_in_list(["left", "right", "bottom", "top"], loc=loc)
             self._loc = loc
@@ -195,7 +195,7 @@ class AxisArtistHelperRectlinear:
         def __init__(self, axes, loc, nth_coord=None):
             """
             nth_coord = along which coordinate value varies
-            in 2d, nth_coord = 0 ->  x axis, nth_coord = 1 -> y axis
+            in 2D, nth_coord = 0 ->  x axis, nth_coord = 1 -> y axis
             """
             super().__init__(loc, nth_coord)
             self.axis = [axes.xaxis, axes.yaxis][self.nth_coord]
@@ -315,25 +315,26 @@ class AxisArtistHelperRectlinear:
 class GridHelperBase:
 
     def __init__(self):
-        self._force_update = True
+        self._force_update = True  # Remove together with invalidate()/valid().
         self._old_limits = None
         super().__init__()
 
     def update_lim(self, axes):
         x1, x2 = axes.get_xlim()
         y1, y2 = axes.get_ylim()
-
         if self._force_update or self._old_limits != (x1, x2, y1, y2):
-            self._update(x1, x2, y1, y2)
+            self._update_grid(x1, y1, x2, y2)
             self._force_update = False
             self._old_limits = (x1, x2, y1, y2)
 
-    def _update(self, x1, x2, y1, y2):
-        pass
+    def _update_grid(self, x1, y1, x2, y2):
+        """Cache relevant computations when the axes limits have changed."""
 
+    @_api.deprecated("3.4")
     def invalidate(self):
         self._force_update = True
 
+    @_api.deprecated("3.4")
     def valid(self):
         return not self._force_update
 
@@ -439,9 +440,9 @@ class GridHelperRectlinear(GridHelperBase):
         if axis in ["both", "y"]:
             x1, x2 = self.axes.get_xlim()
             locs = []
-            if self.axes.yaxis._gridOnMajor:
+            if self.axes.yaxis._major_tick_kw["gridOn"]:
                 locs.extend(self.axes.yaxis.major.locator())
-            if self.axes.yaxis._gridOnMinor:
+            if self.axes.yaxis._minor_tick_kw["gridOn"]:
                 locs.extend(self.axes.yaxis.minor.locator())
 
             for y in locs:
@@ -533,17 +534,17 @@ class Axes(maxes.Axes):
         """
         Toggle the gridlines, and optionally set the properties of the lines.
         """
-        # their are some discrepancy between the behavior of grid in
-        # axes_grid and the original mpl's grid, because axes_grid
-        # explicitly set the visibility of the gridlines.
+        # There are some discrepancies in the behavior of grid() between
+        # axes_grid and Matplotlib, because axes_grid explicitly sets the
+        # visibility of the gridlines.
         super().grid(b, which=which, axis=axis, **kwargs)
         if not self._axisline_on:
             return
         if b is None:
-            b = (self.axes.xaxis._gridOnMinor
-                 or self.axes.xaxis._gridOnMajor
-                 or self.axes.yaxis._gridOnMinor
-                 or self.axes.yaxis._gridOnMajor)
+            b = (self.axes.xaxis._minor_tick_kw["gridOn"]
+                 or self.axes.xaxis._major_tick_kw["gridOn"]
+                 or self.axes.yaxis._minor_tick_kw["gridOn"]
+                 or self.axes.yaxis._major_tick_kw["gridOn"])
         self.gridlines.set(which=which, axis=axis, visible=b)
         self.gridlines.set(**kwargs)
 
@@ -555,6 +556,7 @@ class Axes(maxes.Axes):
         children.extend(super().get_children())
         return children
 
+    @_api.deprecated("3.4")
     def invalidate_grid_helper(self):
         self._grid_helper.invalidate()
 

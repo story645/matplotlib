@@ -17,6 +17,7 @@ from matplotlib.image import (AxesImage, BboxImage, FigureImage,
                               NonUniformImage, PcolorImage)
 from matplotlib.testing.decorators import check_figures_equal, image_comparison
 from matplotlib.transforms import Bbox, Affine2D, TransformedBbox
+import matplotlib.ticker as mticker
 
 import pytest
 
@@ -27,20 +28,16 @@ def test_image_interps():
     # Remove this line when this test image is regenerated.
     plt.rcParams['text.kerning_factor'] = 6
 
-    X = np.arange(100)
-    X = X.reshape(5, 20)
+    X = np.arange(100).reshape(5, 20)
 
-    fig = plt.figure()
-    ax1 = fig.add_subplot(311)
+    fig, (ax1, ax2, ax3) = plt.subplots(3)
     ax1.imshow(X, interpolation='nearest')
     ax1.set_title('three interpolations')
     ax1.set_ylabel('nearest')
 
-    ax2 = fig.add_subplot(312)
     ax2.imshow(X, interpolation='bilinear')
     ax2.set_ylabel('bilinear')
 
-    ax3 = fig.add_subplot(313)
     ax3.imshow(X, interpolation='bicubic')
     ax3.set_ylabel('bicubic')
 
@@ -69,11 +66,9 @@ def test_interp_nearest_vs_none():
     rcParams['savefig.dpi'] = 3
     X = np.array([[[218, 165, 32], [122, 103, 238]],
                   [[127, 255, 0], [255, 99, 71]]], dtype=np.uint8)
-    fig = plt.figure()
-    ax1 = fig.add_subplot(121)
+    fig, (ax1, ax2) = plt.subplots(1, 2)
     ax1.imshow(X, interpolation='none')
     ax1.set_title('interpolation none')
-    ax2 = fig.add_subplot(122)
     ax2.imshow(X, interpolation='nearest')
     ax2.set_title('interpolation nearest')
 
@@ -260,19 +255,13 @@ def test_imsave_pil_kwargs_tiff():
 
 @image_comparison(['image_alpha'], remove_text=True)
 def test_image_alpha():
-    plt.figure()
-
     np.random.seed(0)
     Z = np.random.rand(6, 6)
 
-    plt.subplot(131)
-    plt.imshow(Z, alpha=1.0, interpolation='none')
-
-    plt.subplot(132)
-    plt.imshow(Z, alpha=0.5, interpolation='none')
-
-    plt.subplot(133)
-    plt.imshow(Z, alpha=0.5, interpolation='nearest')
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+    ax1.imshow(Z, alpha=1.0, interpolation='none')
+    ax2.imshow(Z, alpha=0.5, interpolation='none')
+    ax3.imshow(Z, alpha=0.5, interpolation='nearest')
 
 
 def test_cursor_data():
@@ -718,7 +707,8 @@ def test_load_from_url():
            + ('///' if sys.platform == 'win32' else '')
            + path.resolve().as_posix())
     plt.imread(url)
-    plt.imread(urllib.request.urlopen(url))
+    with urllib.request.urlopen(url) as file:
+        plt.imread(file)
 
 
 @image_comparison(['log_scale_image'], remove_text=True)
@@ -798,7 +788,7 @@ def test_image_preserve_size2():
                        np.identity(n, bool)[::-1])
 
 
-@image_comparison(['mask_image_over_under.png'], remove_text=True)
+@image_comparison(['mask_image_over_under.png'], remove_text=True, tol=1.0)
 def test_mask_image_over_under():
     # Remove this line when this test image is regenerated.
     plt.rcParams['pcolormesh.snap'] = False
@@ -811,10 +801,7 @@ def test_mask_image_over_under():
           (2 * np.pi * 0.5 * 1.5))
     Z = 10*(Z2 - Z1)  # difference of Gaussians
 
-    palette = copy(plt.cm.gray)
-    palette.set_over('r', 1.0)
-    palette.set_under('g', 1.0)
-    palette.set_bad('b', 1.0)
+    palette = plt.cm.gray.with_extremes(over='r', under='g', bad='b')
     Zm = np.ma.masked_where(Z > 1.2, Z)
     fig, (ax1, ax2) = plt.subplots(1, 2)
     im = ax1.imshow(Zm, interpolation='bilinear',
@@ -880,10 +867,7 @@ def test_imshow_endianess():
                   remove_text=True, style='mpl20')
 def test_imshow_masked_interpolation():
 
-    cm = copy(plt.get_cmap('viridis'))
-    cm.set_over('r')
-    cm.set_under('b')
-    cm.set_bad('k')
+    cmap = plt.get_cmap('viridis').with_extremes(over='r', under='b', bad='k')
 
     N = 20
     n = colors.Normalize(vmin=0, vmax=N*N-1)
@@ -910,7 +894,7 @@ def test_imshow_masked_interpolation():
 
     for interp, ax in zip(interps, ax_grid.ravel()):
         ax.set_title(interp)
-        ax.imshow(data, norm=n, cmap=cm, interpolation=interp)
+        ax.imshow(data, norm=n, cmap=cmap, interpolation=interp)
         ax.axis('off')
 
 
@@ -1090,10 +1074,10 @@ def test_image_array_alpha(fig_test, fig_ref):
     alpha = zz / zz.max()
 
     cmap = plt.get_cmap('viridis')
-    ax = fig_test.add_subplot(111)
+    ax = fig_test.add_subplot()
     ax.imshow(zz, alpha=alpha, cmap=cmap, interpolation='nearest')
 
-    ax = fig_ref.add_subplot(111)
+    ax = fig_ref.add_subplot()
     rgba = cmap(colors.Normalize()(zz))
     rgba[..., -1] = alpha
     ax.imshow(rgba, interpolation='nearest')
@@ -1231,8 +1215,41 @@ def test_huge_range_log(fig_test, fig_ref):
     data = np.full((5, 5), -1, dtype=np.float64)
     data[0:2, :] = 1000
 
-    cm = copy(plt.get_cmap('viridis'))
-    cm.set_under('w')
+    cmap = copy(plt.get_cmap('viridis'))
+    cmap.set_under('w')
     ax = fig_ref.subplots()
     im = ax.imshow(data, norm=colors.Normalize(vmin=100, vmax=data.max()),
-                   interpolation='nearest', cmap=cm)
+                   interpolation='nearest', cmap=cmap)
+
+
+@check_figures_equal()
+def test_spy_box(fig_test, fig_ref):
+    # setting up reference and test
+    ax_test = fig_test.subplots(1, 3)
+    ax_ref = fig_ref.subplots(1, 3)
+
+    plot_data = (
+        [[1, 1], [1, 1]],
+        [[0, 0], [0, 0]],
+        [[0, 1], [1, 0]],
+    )
+    plot_titles = ["ones", "zeros", "mixed"]
+
+    for i, (z, title) in enumerate(zip(plot_data, plot_titles)):
+        ax_test[i].set_title(title)
+        ax_test[i].spy(z)
+        ax_ref[i].set_title(title)
+        ax_ref[i].imshow(z, interpolation='nearest',
+                            aspect='equal', origin='upper', cmap='Greys',
+                            vmin=0, vmax=1)
+        ax_ref[i].set_xlim(-0.5, 1.5)
+        ax_ref[i].set_ylim(1.5, -0.5)
+        ax_ref[i].xaxis.tick_top()
+        ax_ref[i].title.set_y(1.05)
+        ax_ref[i].xaxis.set_ticks_position('both')
+        ax_ref[i].xaxis.set_major_locator(
+            mticker.MaxNLocator(nbins=9, steps=[1, 2, 5, 10], integer=True)
+        )
+        ax_ref[i].yaxis.set_major_locator(
+            mticker.MaxNLocator(nbins=9, steps=[1, 2, 5, 10], integer=True)
+        )

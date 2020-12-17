@@ -374,11 +374,6 @@ class QuiverKey(martist.Artist):
             return True, {}
         return False, {}
 
-    @cbook.deprecated("3.2")
-    @property
-    def quiverkey_doc(self):
-        return self.__init__.__doc__
-
 
 def _parse_args(*args, caller_name='function'):
     """
@@ -514,7 +509,7 @@ class Quiver(mcollections.PolyCollection):
 
         self._cid = ax.figure.callbacks.connect('dpi_changed', on_dpi_change)
 
-    @cbook.deprecated("3.3", alternative="axes")
+    @_api.deprecated("3.3", alternative="axes")
     def ax(self):
         return self.axes
 

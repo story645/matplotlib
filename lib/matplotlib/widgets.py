@@ -11,7 +11,7 @@ wide and tall you want your Axes to be to accommodate your widget.
 
 from contextlib import ExitStack
 import copy
-from numbers import Integral
+from numbers import Integral, Number
 
 import numpy as np
 
@@ -19,7 +19,6 @@ import matplotlib as mpl
 from . import _api, cbook, colors, ticker
 from .lines import Line2D
 from .patches import Circle, Rectangle, Ellipse
-from .transforms import blended_transform_factory
 
 
 class LockDraw:
@@ -109,15 +108,13 @@ class AxesWidget(Widget):
     active : bool
         If False, the widget does not respond to events.
     """
+
+    cids = cbook.deprecated("3.4")(property(lambda self: self._cids))
+
     def __init__(self, ax):
         self.ax = ax
         self.canvas = ax.figure.canvas
         self._cids = []
-
-    @cbook.deprecated("3.4")
-    @property
-    def cids(self):
-        return self._cids
 
     def connect_event(self, event, callback):
         """
@@ -153,6 +150,11 @@ class Button(AxesWidget):
     hovercolor
         The color of the button when hovering.
     """
+
+    cnt = cbook.deprecated("3.4")(property(  # Not real, but close enough.
+        lambda self: len(self._observers.callbacks['clicked'])))
+    observers = cbook.deprecated("3.4")(property(
+        lambda self: self._observers.callbacks['clicked']))
 
     def __init__(self, ax, label, image=None,
                  color='0.85', hovercolor='0.95'):
@@ -192,17 +194,6 @@ class Button(AxesWidget):
         self.color = color
         self.hovercolor = hovercolor
 
-    @cbook.deprecated("3.4")
-    @property
-    def cnt(self):
-        # Not real, but close enough.
-        return len(self._observers.callbacks['clicked'])
-
-    @cbook.deprecated("3.4")
-    @property
-    def observers(self):
-        return self._observers.callbacks['clicked']
-
     def _click(self, event):
         if self.ignore(event) or event.inaxes != self.ax or not self.eventson:
             return
@@ -231,7 +222,7 @@ class Button(AxesWidget):
 
         Returns a connection id, which can be used to disconnect the callback.
         """
-        return self._observers.connect('clicked', func)
+        return self._observers.connect('clicked', lambda event: func(event))
 
     def disconnect(self, cid):
         """Remove the callback function with connection id *cid*."""
@@ -252,10 +243,15 @@ class Slider(AxesWidget):
         Slider value.
     """
 
+    cnt = cbook.deprecated("3.4")(property(  # Not real, but close enough.
+        lambda self: len(self._observers.callbacks['changed'])))
+    observers = cbook.deprecated("3.4")(property(
+        lambda self: self._observers.callbacks['changed']))
+
     def __init__(self, ax, label, valmin, valmax, valinit=0.5, valfmt=None,
                  closedmin=True, closedmax=True, slidermin=None,
                  slidermax=None, dragging=True, valstep=None,
-                 orientation='horizontal', **kwargs):
+                 orientation='horizontal', *, initcolor='r', **kwargs):
         """
         Parameters
         ----------
@@ -295,11 +291,16 @@ class Slider(AxesWidget):
         dragging : bool, default: True
             If True the slider can be dragged by the mouse.
 
-        valstep : float, default: None
-            If given, the slider will snap to multiples of *valstep*.
+        valstep : float or array-like, default: None
+            If a float, the slider will snap to multiples of *valstep*.
+            If an array the slider will snap to the values in the array.
 
         orientation : {'horizontal', 'vertical'}, default: 'horizontal'
             The orientation of the slider.
+
+        initcolor : color, default: 'r'
+            The color of the line at the *valinit* position. Set to ``'none'``
+            for no line.
 
         Notes
         -----
@@ -337,10 +338,10 @@ class Slider(AxesWidget):
         self.valinit = valinit
         if orientation == 'vertical':
             self.poly = ax.axhspan(valmin, valinit, 0, 1, **kwargs)
-            self.hline = ax.axhline(valinit, 0, 1, color='r', lw=1)
+            self.hline = ax.axhline(valinit, 0, 1, color=initcolor, lw=1)
         else:
             self.poly = ax.axvspan(valmin, valinit, 0, 1, **kwargs)
-            self.vline = ax.axvline(valinit, 0, 1, color='r', lw=1)
+            self.vline = ax.axvline(valinit, 0, 1, color=initcolor, lw=1)
 
         if orientation == 'vertical':
             ax.set_ylim((valmin, valmax))
@@ -388,22 +389,18 @@ class Slider(AxesWidget):
 
         self.set_val(valinit)
 
-    @cbook.deprecated("3.4")
-    @property
-    def cnt(self):
-        # Not real, but close enough.
-        return len(self._observers.callbacks['changed'])
-
-    @cbook.deprecated("3.4")
-    @property
-    def observers(self):
-        return self._observers.callbacks['changed']
-
     def _value_in_bounds(self, val):
         """Makes sure *val* is with given bounds."""
-        if self.valstep:
+        if isinstance(self.valstep, Number):
             val = (self.valmin
                    + round((val - self.valmin) / self.valstep) * self.valstep)
+        elif self.valstep is not None:
+            valstep = np.asanyarray(self.valstep)
+            if valstep.ndim != 1:
+                raise ValueError(
+                    f"valstep must have 1 dimension but has {valstep.ndim}"
+                )
+            val = valstep[np.argmin(np.abs(valstep - val))]
 
         if val <= self.valmin:
             if not self.closedmin:
@@ -498,7 +495,7 @@ class Slider(AxesWidget):
         int
             Connection id (which can be used to disconnect *func*)
         """
-        return self._observers.connect('changed', func)
+        return self._observers.connect('changed', lambda val: func(val))
 
     def disconnect(self, cid):
         """
@@ -538,6 +535,11 @@ class CheckButtons(AxesWidget):
         List of lines for the x's in the check boxes.  These lines exist for
         each box, but have ``set_visible(False)`` when its box is not checked.
     """
+
+    cnt = cbook.deprecated("3.4")(property(  # Not real, but close enough.
+        lambda self: len(self._observers.callbacks['clicked'])))
+    observers = cbook.deprecated("3.4")(property(
+        lambda self: self._observers.callbacks['clicked']))
 
     def __init__(self, ax, labels, actives=None):
         """
@@ -606,17 +608,6 @@ class CheckButtons(AxesWidget):
 
         self._observers = cbook.CallbackRegistry()
 
-    @cbook.deprecated("3.4")
-    @property
-    def cnt(self):
-        # Not real, but close enough.
-        return len(self._observers.callbacks['clicked'])
-
-    @cbook.deprecated("3.4")
-    @property
-    def observers(self):
-        return self._observers.callbacks['clicked']
-
     def _clicked(self, event):
         if self.ignore(event) or event.button != 1 or event.inaxes != self.ax:
             return
@@ -667,7 +658,7 @@ class CheckButtons(AxesWidget):
 
         Returns a connection id, which can be used to disconnect the callback.
         """
-        return self._observers.connect('clicked', func)
+        return self._observers.connect('clicked', lambda text: func(text))
 
     def disconnect(self, cid):
         """Remove the observer with connection id *cid*."""
@@ -697,10 +688,14 @@ class TextBox(AxesWidget):
         The color of the text box when hovering.
     """
 
-    @cbook.deprecated("3.3")
-    @property
-    def params_to_disable(self):
-        return [key for key in mpl.rcParams if 'keymap' in key]
+    params_to_disable = cbook.deprecated("3.3")(property(
+        lambda self: [key for key in mpl.rcParams if 'keymap' in key]))
+    cnt = cbook.deprecated("3.4")(property(  # Not real, but close enough.
+        lambda self: sum(len(d) for d in self._observers.callbacks.values())))
+    change_observers = cbook.deprecated("3.4")(property(
+        lambda self: self._observers.callbacks['change']))
+    submit_observers = cbook.deprecated("3.4")(property(
+        lambda self: self._observers.callbacks['submit']))
 
     def __init__(self, ax, label, initial='',
                  color='.95', hovercolor='1', label_pad=.01):
@@ -753,22 +748,6 @@ class TextBox(AxesWidget):
         self.hovercolor = hovercolor
 
         self.capturekeystrokes = False
-
-    @cbook.deprecated("3.4")
-    @property
-    def cnt(self):
-        # Not real, but close enough.
-        return sum(len(d) for d in self._observers.callbacks.values())
-
-    @cbook.deprecated("3.4")
-    @property
-    def change_observers(self):
-        return self._observers.callbacks['change']
-
-    @cbook.deprecated("3.4")
-    @property
-    def submit_observers(self):
-        return self._observers.callbacks['submit']
 
     @property
     def text(self):
@@ -868,7 +847,7 @@ class TextBox(AxesWidget):
         else:
             # If not using toolmanager, disable all keypress-related rcParams.
             # Avoid spurious warnings if keymaps are getting deprecated.
-            with cbook._suppress_matplotlib_deprecation_warning():
+            with _api.suppress_matplotlib_deprecation_warning():
                 stack.enter_context(mpl.rc_context(
                     {k: [] for k in mpl.rcParams if k.startswith("keymap.")}))
 
@@ -930,7 +909,7 @@ class TextBox(AxesWidget):
 
         A connection id is returned which can be used to disconnect.
         """
-        return self._observers.connect('change', func)
+        return self._observers.connect('change', lambda text: func(text))
 
     def on_submit(self, func):
         """
@@ -939,7 +918,7 @@ class TextBox(AxesWidget):
 
         A connection id is returned which can be used to disconnect.
         """
-        return self._observers.connect('submit', func)
+        return self._observers.connect('submit', lambda text: func(text))
 
     def disconnect(self, cid):
         """Remove the observer with connection id *cid*."""
@@ -1026,16 +1005,10 @@ class RadioButtons(AxesWidget):
 
         self._observers = cbook.CallbackRegistry()
 
-    @cbook.deprecated("3.4")
-    @property
-    def cnt(self):
-        # Not real, but close enough.
-        return len(self._observers.callbacks['clicked'])
-
-    @cbook.deprecated("3.4")
-    @property
-    def observers(self):
-        return self._observers.callbacks['clicked']
+    cnt = cbook.deprecated("3.4")(property(  # Not real, but close enough.
+        lambda self: len(self._observers.callbacks['clicked'])))
+    observers = cbook.deprecated("3.4")(property(
+        lambda self: self._observers.callbacks['clicked']))
 
     def _clicked(self, event):
         if self.ignore(event) or event.button != 1 or event.inaxes != self.ax:
@@ -1160,50 +1133,50 @@ class SubplotTool(Widget):
             event.canvas.draw()
             self.targetfig.canvas.draw()
 
-    axleft = cbook.deprecated("3.3", name="axleft")(
+    axleft = cbook.deprecated("3.3")(
         property(lambda self: self.sliderleft.ax))
-    axright = cbook.deprecated("3.3", name="axright")(
+    axright = cbook.deprecated("3.3")(
         property(lambda self: self.sliderright.ax))
-    axbottom = cbook.deprecated("3.3", name="axbottom")(
+    axbottom = cbook.deprecated("3.3")(
         property(lambda self: self.sliderbottom.ax))
-    axtop = cbook.deprecated("3.3", name="axtop")(
+    axtop = cbook.deprecated("3.3")(
         property(lambda self: self.slidertop.ax))
-    axwspace = cbook.deprecated("3.3", name="axwspace")(
+    axwspace = cbook.deprecated("3.3")(
         property(lambda self: self.sliderwspace.ax))
-    axhspace = cbook.deprecated("3.3", name="axhspace")(
+    axhspace = cbook.deprecated("3.3")(
         property(lambda self: self.sliderhspace.ax))
 
-    @cbook.deprecated("3.3")
+    @_api.deprecated("3.3")
     def funcleft(self, val):
         self.targetfig.subplots_adjust(left=val)
         if self.drawon:
             self.targetfig.canvas.draw()
 
-    @cbook.deprecated("3.3")
+    @_api.deprecated("3.3")
     def funcright(self, val):
         self.targetfig.subplots_adjust(right=val)
         if self.drawon:
             self.targetfig.canvas.draw()
 
-    @cbook.deprecated("3.3")
+    @_api.deprecated("3.3")
     def funcbottom(self, val):
         self.targetfig.subplots_adjust(bottom=val)
         if self.drawon:
             self.targetfig.canvas.draw()
 
-    @cbook.deprecated("3.3")
+    @_api.deprecated("3.3")
     def functop(self, val):
         self.targetfig.subplots_adjust(top=val)
         if self.drawon:
             self.targetfig.canvas.draw()
 
-    @cbook.deprecated("3.3")
+    @_api.deprecated("3.3")
     def funcwspace(self, val):
         self.targetfig.subplots_adjust(wspace=val)
         if self.drawon:
             self.targetfig.canvas.draw()
 
-    @cbook.deprecated("3.3")
+    @_api.deprecated("3.3")
     def funchspace(self, val):
         self.targetfig.subplots_adjust(hspace=val)
         if self.drawon:
@@ -1457,8 +1430,21 @@ class _SelectorWidget(AxesWidget):
         """Force an update of the background."""
         # If you add a call to `ignore` here, you'll want to check edge case:
         # `release` can call a draw event even when `ignore` is True.
-        if self.useblit:
+        if not self.useblit:
+            return
+        # Make sure that widget artists don't get accidentally included in the
+        # background, by re-rendering the background if needed (and then
+        # re-re-rendering the canvas with the visible widget artists).
+        needs_redraw = any(artist.get_visible() for artist in self.artists)
+        with ExitStack() as stack:
+            if needs_redraw:
+                for artist in self.artists:
+                    stack.callback(artist.set_visible, artist.get_visible())
+                    artist.set_visible(False)
+                self.canvas.draw()
             self.background = self.canvas.copy_from_bbox(self.ax.bbox)
+        if needs_redraw:
+            self.update()
 
     def connect_default_events(self):
         """Connect the major canvas events to methods."""
@@ -1716,12 +1702,10 @@ class SpanSelector(_SelectorWidget):
             self.connect_default_events()
 
         if self.direction == 'horizontal':
-            trans = blended_transform_factory(self.ax.transData,
-                                              self.ax.transAxes)
+            trans = ax.get_xaxis_transform()
             w, h = 0, 1
         else:
-            trans = blended_transform_factory(self.ax.transAxes,
-                                              self.ax.transData)
+            trans = ax.get_yaxis_transform()
             w, h = 1, 0
         self.rect = Rectangle((0, 0), w, h,
                               transform=trans,
@@ -1854,11 +1838,10 @@ class ToolHandles:
 
     def __init__(self, ax, x, y, marker='o', marker_props=None, useblit=True):
         self.ax = ax
-        props = dict(marker=marker, markersize=7, markerfacecolor='w',
-                     linestyle='none', alpha=0.5, visible=False,
-                     label='_nolegend_')
-        props.update(cbook.normalize_kwargs(marker_props, Line2D._alias_map)
-                     if marker_props is not None else {})
+        props = {'marker': marker, 'markersize': 7, 'markerfacecolor': 'w',
+                 'linestyle': 'none', 'alpha': 0.5, 'visible': False,
+                 'label': '_nolegend_',
+                 **cbook.normalize_kwargs(marker_props, Line2D._alias_map)}
         self._markers = Line2D(x, y, animated=useblit, **props)
         self.ax.add_line(self._markers)
         self.artist = self._markers
@@ -2028,8 +2011,7 @@ class RectangleSelector(_SelectorWidget):
             props = dict(markeredgecolor='r')
         else:
             props = dict(markeredgecolor=rectprops.get('edgecolor', 'r'))
-        props.update(cbook.normalize_kwargs(marker_props, Line2D._alias_map)
-                     if marker_props is not None else {})
+        props.update(cbook.normalize_kwargs(marker_props, Line2D._alias_map))
         self._corner_order = ['NW', 'NE', 'SE', 'SW']
         xc, yc = self.corners
         self._corner_handles = ToolHandles(self.ax, xc, yc, marker_props=props,
@@ -2386,7 +2368,7 @@ class LassoSelector(_SelectorWidget):
 
     Example usage::
 
-        ax = subplot(111)
+        ax = plt.subplot()
         ax.plot(x, y)
 
         def onselect(verts):

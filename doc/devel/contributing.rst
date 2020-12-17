@@ -5,12 +5,28 @@ Contributing
 ============
 
 This project is a community effort, and everyone is welcome to
-contribute.  We follow the `Python Software Foundation Code of Conduct
-<coc_>`_ in everything we do.
+contribute. Everyone within the community
+is expected to abide by our `code of conduct <../../CODE_OF_CONDUCT.md>`_.
 
-The project is hosted on https://github.com/matplotlib/matplotlib
+The project is hosted on
+https://github.com/matplotlib/matplotlib
 
-.. _coc: http://www.python.org/psf/codeofconduct/
+Contributor Incubator
+=====================
+
+Contributing to a major open source project can be intimidating! There
+may be technical (git / github), process (code review!), or impostor
+syndrome (your changes will be downloaded over 10M times a month)
+related barriers to YOU feeling like you can contribute to Matplotilb.
+If you are interested in becoming a regular contributor to Matplotlib,
+but are not sure where to start, please go to `gitter
+<https://gitter.im/matplotlib/matplotlib>`_ and asked to be added to
+``'#incubator'``.  This is a private gitter room moderated by core
+Matplotlib developers where you can get guidance and support for your
+first few PRs.  This is a place you can ask questions about anything:
+how to use git, github, how our PR review process works, technical questions
+about the code, or get "pre-review" on your PR.
+
 
 .. _submitting-a-bug-report:
 
@@ -511,7 +527,7 @@ There are five levels at which you can emit messages.
 
 - `logging.critical` and `logging.error` are really only there for errors that
   will end the use of the library but not kill the interpreter.
-- `logging.warning` and `.cbook._warn_external` are used to warn the user,
+- `logging.warning` and `._api.warn_external` are used to warn the user,
   see below.
 - `logging.info` is for information that the user may want to know if the
   program behaves oddly. They are not displayed by default. For instance, if
@@ -527,16 +543,16 @@ By default, `logging` displays all log messages at levels higher than
 ``logging.WARNING`` to `sys.stderr`.
 
 The `logging tutorial`_ suggests that the difference between `logging.warning`
-and `.cbook._warn_external` (which uses `warnings.warn`) is that
-`.cbook._warn_external` should be used for things the user must change to stop
+and `._api.warn_external` (which uses `warnings.warn`) is that
+`._api.warn_external` should be used for things the user must change to stop
 the warning (typically in the source), whereas `logging.warning` can be more
-persistent. Moreover, note that `.cbook._warn_external` will by default only
+persistent. Moreover, note that `._api.warn_external` will by default only
 emit a given warning *once* for each line of user code, whereas
 `logging.warning` will display the message every time it is called.
 
 By default, `warnings.warn` displays the line of code that has the ``warn``
 call. This usually isn't more informative than the warning message itself.
-Therefore, Matplotlib uses `.cbook._warn_external` which uses `warnings.warn`,
+Therefore, Matplotlib uses `._api.warn_external` which uses `warnings.warn`,
 but goes up the stack and displays the first line of code outside of
 Matplotlib. For example, for the module::
 
@@ -559,13 +575,13 @@ will display::
     UserWarning: Attempting to set identical bottom==top
     warnings.warn('Attempting to set identical bottom==top')
 
-Modifying the module to use `.cbook._warn_external`::
+Modifying the module to use `._api.warn_external`::
 
-    from matplotlib import cbook
+    from matplotlib import _api
 
     def set_range(bottom, top):
         if bottom == top:
-            cbook._warn_external('Attempting to set identical bottom==top')
+            _api.warn_external('Attempting to set identical bottom==top')
 
 and running the same script will display::
 

@@ -24,14 +24,14 @@ import numpy as np
 from PIL import Image
 
 import matplotlib as mpl
-from matplotlib import _text_layout, cbook
+from matplotlib import _api, _text_layout, cbook
 from matplotlib._pylab_helpers import Gcf
 from matplotlib.backend_bases import (
     _Backend, _check_savefig_extra_args, FigureCanvasBase, FigureManagerBase,
     GraphicsContextBase, RendererBase)
 from matplotlib.backends.backend_mixed import MixedModeRenderer
 from matplotlib.figure import Figure
-from matplotlib.font_manager import findfont, is_opentype_cff_font, get_font
+from matplotlib.font_manager import findfont, get_font
 from matplotlib.afm import AFM
 import matplotlib.type1font as type1font
 import matplotlib.dviread as dviread
@@ -184,15 +184,18 @@ def _create_pdf_info_dict(backend, metadata):
 
     def is_string_like(x):
         return isinstance(x, str)
+    is_string_like.text_for_warning = "an instance of str"
 
     def is_date(x):
         return isinstance(x, datetime)
+    is_date.text_for_warning = "an instance of datetime.datetime"
 
     def check_trapped(x):
         if isinstance(x, Name):
             return x.name in (b'True', b'False', b'Unknown')
         else:
             return x in ('True', 'False', 'Unknown')
+    check_trapped.text_for_warning = 'one of {"True", "False", "Unknown"}'
 
     keywords = {
         'Title': is_string_like,
@@ -207,9 +210,12 @@ def _create_pdf_info_dict(backend, metadata):
     }
     for k in info:
         if k not in keywords:
-            cbook._warn_external(f'Unknown infodict keyword: {k}')
+            cbook._warn_external(f'Unknown infodict keyword: {k!r}. '
+                                 f'Must be one of {set(keywords)!r}.')
         elif not keywords[k](info[k]):
-            cbook._warn_external(f'Bad value for infodict keyword {k}')
+            cbook._warn_external(f'Bad value for infodict keyword {k}. '
+                                 f'Got {info[k]!r} which is not '
+                                 f'{keywords[k].text_for_warning}.')
     if 'Trapped' in info:
         info['Trapped'] = Name(info['Trapped'])
 
@@ -445,9 +451,9 @@ class Op(Operator, Enum):
 
         Parameters
         ----------
-        fill: bool
+        fill : bool
             Fill the path with the fill color.
-        stroke: bool
+        stroke : bool
             Stroke the outline of the path with the line color.
         """
         if stroke:
@@ -688,7 +694,13 @@ class PdfFile:
 
         self.paths = []
 
-        self.pageAnnotations = []  # A list of annotations for the current page
+        # A list of annotations for each page. Each entry is a tuple of the
+        # overall Annots object reference that's inserted into the page object,
+        # followed by a list of the actual annotations.
+        self._annotations = []
+        # For annotations added before a page is created; mostly for the
+        # purpose of newTextnote.
+        self.pageAnnotations = []
 
         # The PDF spec recommends to include every procset
         procsets = [Name(x) for x in "PDF Text ImageB ImageC ImageI".split()]
@@ -704,7 +716,7 @@ class PdfFile:
                      'ProcSet': procsets}
         self.writeObject(self.resourceObject, resources)
 
-    @cbook.deprecated("3.3")
+    @_api.deprecated("3.3")
     @property
     def used_characters(self):
         return self.file._character_tracker.used_characters
@@ -714,6 +726,7 @@ class PdfFile:
 
         self.width, self.height = width, height
         contentObject = self.reserveObject('page contents')
+        annotsObject = self.reserveObject('annotations')
         thePage = {'Type': Name('Page'),
                    'Parent': self.pagesObject,
                    'Resources': self.resourceObject,
@@ -722,11 +735,12 @@ class PdfFile:
                    'Group': {'Type': Name('Group'),
                              'S': Name('Transparency'),
                              'CS': Name('DeviceRGB')},
-                   'Annots': self.pageAnnotations,
+                   'Annots': annotsObject,
                    }
         pageObject = self.reserveObject('page')
         self.writeObject(pageObject, thePage)
         self.pageList.append(pageObject)
+        self._annotations.append((annotsObject, self.pageAnnotations))
 
         self.beginStream(contentObject.id,
                          self.reserveObject('length of content stream'))
@@ -744,14 +758,13 @@ class PdfFile:
                    'Contents': text,
                    'Rect': positionRect,
                    }
-        annotObject = self.reserveObject('annotation')
-        self.writeObject(annotObject, theNote)
-        self.pageAnnotations.append(annotObject)
+        self.pageAnnotations.append(theNote)
 
     def finalize(self):
         """Write out the various deferred objects and the pdf end matter."""
 
         self.endStream()
+        self._write_annotations()
         self.writeFonts()
         self.writeExtGSTates()
         self._write_soft_mask_groups()
@@ -809,6 +822,10 @@ class PdfFile:
         if self.currentstream is not None:
             self.currentstream.end()
             self.currentstream = None
+
+    def _write_annotations(self):
+        for annotsObject, annotations in self._annotations:
+            self.writeObject(annotsObject, annotations)
 
     def fontName(self, fontprop):
         """
@@ -1331,15 +1348,6 @@ end"""
             'StemV': 0  # ???
             }
 
-        # The font subsetting to a Type 3 font does not work for
-        # OpenType (.otf) that embed a Postscript CFF font, so avoid that --
-        # save as a (non-subsetted) Type 42 font instead.
-        if is_opentype_cff_font(filename):
-            fonttype = 42
-            _log.warning("%r can not be subsetted into a Type 3 font. The "
-                         "entire font will be embedded in the output.",
-                         os.path.basename(filename))
-
         if fonttype == 3:
             return embedTTFType3(font, characters, descriptor)
         elif fonttype == 42:
@@ -1836,7 +1844,7 @@ class RendererPdf(_backend_pdf_ps.RendererPDFPSBase):
         self.gc = self.new_gc()
         self.image_dpi = image_dpi
 
-    @cbook.deprecated("3.4")
+    @_api.deprecated("3.4")
     @property
     def mathtext_parser(self):
         return MathTextParser("Pdf")
@@ -1871,12 +1879,12 @@ class RendererPdf(_backend_pdf_ps.RendererPDFPSBase):
         gc._fillcolor = orig_fill
         gc._effective_alphas = orig_alphas
 
-    @cbook.deprecated("3.3")
+    @_api.deprecated("3.3")
     def track_characters(self, *args, **kwargs):
         """Keep track of which characters are required from each font."""
         self.file._character_tracker.track(*args, **kwargs)
 
-    @cbook.deprecated("3.3")
+    @_api.deprecated("3.3")
     def merge_used_characters(self, *args, **kwargs):
         self.file._character_tracker.merge(*args, **kwargs)
 
@@ -2089,10 +2097,20 @@ class RendererPdf(_backend_pdf_ps.RendererPDFPSBase):
         width, height, descent, glyphs, rects = \
             self._text2path.mathtext_parser.parse(s, 72, prop)
 
-        # When using Type 3 fonts, we can't use character codes higher
-        # than 255, so we use the "Do" command to render those
-        # instead.
-        global_fonttype = mpl.rcParams['pdf.fonttype']
+        if gc.get_url() is not None:
+            link_annotation = {
+                'Type': Name('Annot'),
+                'Subtype': Name('Link'),
+                'Rect': (x, y, x + width, y + height),
+                'Border': [0, 0, 0],
+                'A': {
+                    'S': Name('URI'),
+                    'URI': gc.get_url(),
+                },
+            }
+            self.file._annotations[-1][1].append(link_annotation)
+
+        fonttype = mpl.rcParams['pdf.fonttype']
 
         # Set up a global transformation matrix for the whole math expression
         a = math.radians(angle)
@@ -2102,18 +2120,19 @@ class RendererPdf(_backend_pdf_ps.RendererPDFPSBase):
                          x, y, Op.concat_matrix)
 
         self.check_gc(gc, gc._rgb)
-        self.file.output(Op.begin_text)
         prev_font = None, None
         oldx, oldy = 0, 0
+        type3_multibytes = []
+
+        self.file.output(Op.begin_text)
         for font, fontsize, num, ox, oy in glyphs:
             self.file._character_tracker.track(font, chr(num))
             fontname = font.fname
-            if is_opentype_cff_font(fontname):
-                fonttype = 42
+            if fonttype == 3 and num > 255:
+                # For Type3 fonts, multibyte characters must be emitted
+                # separately (below).
+                type3_multibytes.append((font, fontsize, ox, oy, num))
             else:
-                fonttype = global_fonttype
-
-            if fonttype == 42 or num <= 255:
                 self._setup_textpos(ox, oy, 0, oldx, oldy)
                 oldx, oldy = ox, oy
                 if (fontname, fontsize) != prev_font:
@@ -2124,27 +2143,9 @@ class RendererPdf(_backend_pdf_ps.RendererPDFPSBase):
                                  Op.show)
         self.file.output(Op.end_text)
 
-        # If using Type 3 fonts, render all of the multi-byte characters
-        # as XObjects using the 'Do' command.
-        if global_fonttype == 3:
-            for font, fontsize, num, ox, oy in glyphs:
-                fontname = font.fname
-                if is_opentype_cff_font(fontname):
-                    fonttype = 42
-                else:
-                    fonttype = global_fonttype
-
-                if fonttype == 3 and num > 255:
-                    self.file.fontName(fontname)
-                    self.file.output(Op.gsave,
-                                     0.001 * fontsize, 0,
-                                     0, 0.001 * fontsize,
-                                     ox, oy, Op.concat_matrix)
-                    symbol_name = font.get_glyph_name(font.get_char_index(num))
-                    name = self.file._get_xobject_symbol_name(
-                        fontname, symbol_name)
-                    self.file.output(Name(name), Op.use_xobject)
-                    self.file.output(Op.grestore)
+        for font, fontsize, ox, oy, num in type3_multibytes:
+            self._draw_xobject_glyph(
+                font, fontsize, font.get_char_index(num), ox, oy)
 
         # Draw any horizontal lines in the math layout
         for ox, oy, width, height in rects:
@@ -2162,6 +2163,19 @@ class RendererPdf(_backend_pdf_ps.RendererPDFPSBase):
         dvifile = texmanager.make_dvi(s, fontsize)
         with dviread.Dvi(dvifile, 72) as dvi:
             page, = dvi
+
+        if gc.get_url() is not None:
+            link_annotation = {
+                'Type': Name('Annot'),
+                'Subtype': Name('Link'),
+                'Rect': (x, y, x + page.width, y + page.height),
+                'Border': [0, 0, 0],
+                'A': {
+                    'S': Name('URI'),
+                    'URI': gc.get_url(),
+                },
+            }
+            self.file._annotations[-1][1].append(link_annotation)
 
         # Gather font information and do some setup for combining
         # characters into strings. The variable seq will contain a
@@ -2257,10 +2271,21 @@ class RendererPdf(_backend_pdf_ps.RendererPDFPSBase):
             font = self._get_font_ttf(prop)
             self.file._character_tracker.track(font, s)
             fonttype = mpl.rcParams['pdf.fonttype']
-            # We can't subset all OpenType fonts, so switch to Type 42
-            # in that case.
-            if is_opentype_cff_font(font.fname):
-                fonttype = 42
+
+        if gc.get_url() is not None:
+            font.set_text(s)
+            width, height = font.get_width_height()
+            link_annotation = {
+                'Type': Name('Annot'),
+                'Subtype': Name('Link'),
+                'Rect': (x, y, x + width / 64, y + height / 64),
+                'Border': [0, 0, 0],
+                'A': {
+                    'S': Name('URI'),
+                    'URI': gc.get_url(),
+                },
+            }
+            self.file._annotations[-1][1].append(link_annotation)
 
         # If fonttype != 3 or there are no multibyte characters, emit the whole
         # string at once.
@@ -2322,16 +2347,19 @@ class RendererPdf(_backend_pdf_ps.RendererPDFPSBase):
             self.file.output(Op.end_text)
             # Then emit all the multibyte characters, one at a time.
             for start_x, glyph_idx in multibyte_glyphs:
-                glyph_name = font.get_glyph_name(glyph_idx)
-                self.file.output(Op.gsave)
-                self.file.output(0.001 * fontsize, 0,
-                                 0, 0.001 * fontsize,
-                                 start_x, 0, Op.concat_matrix)
-                name = self.file._get_xobject_symbol_name(
-                    font.fname, glyph_name)
-                self.file.output(Name(name), Op.use_xobject)
-                self.file.output(Op.grestore)
+                self._draw_xobject_glyph(font, fontsize, glyph_idx, start_x, 0)
             self.file.output(Op.grestore)
+
+    def _draw_xobject_glyph(self, font, fontsize, glyph_idx, x, y):
+        """Draw a multibyte character from a Type 3 font as an XObject."""
+        symbol_name = font.get_glyph_name(glyph_idx)
+        name = self.file._get_xobject_symbol_name(font.fname, symbol_name)
+        self.file.output(
+            Op.gsave,
+            0.001 * fontsize, 0, 0, 0.001 * fontsize, x, y, Op.concat_matrix,
+            Name(name), Op.use_xobject,
+            Op.grestore,
+        )
 
     def new_gc(self):
         # docstring inherited
@@ -2664,15 +2692,7 @@ class PdfPages:
 
 
 class FigureCanvasPdf(FigureCanvasBase):
-    """
-    The canvas the figure renders into.  Calls the draw and print fig
-    methods, creates the renderers, etc...
-
-    Attributes
-    ----------
-    figure : `matplotlib.figure.Figure`
-        A high-level Figure instance
-    """
+    # docstring inherited
 
     fixed_dpi = 72
     filetypes = {'pdf': 'Portable Document Format'}

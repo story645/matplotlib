@@ -1,7 +1,5 @@
 """
-An agg_ backend.
-
-.. _agg: http://antigrain.com/
+An `Anti-Grain Geometry <http://antigrain.com>`_ (AGG) backend.
 
 Features that are implemented:
 
@@ -16,7 +14,7 @@ Features that are implemented:
 * draw polygon
 * freetype2 w/ ft2font
 
-TODO:
+Still TODO:
 
 * integrate screen dpi w/ ppi and text
 """
@@ -32,7 +30,7 @@ import numpy as np
 from PIL import Image
 
 import matplotlib as mpl
-from matplotlib import cbook
+from matplotlib import _api, cbook
 from matplotlib import colors as mcolors
 from matplotlib.backend_bases import (
     _Backend, _check_savefig_extra_args, FigureCanvasBase, FigureManagerBase,
@@ -117,14 +115,14 @@ class RendererAgg(RendererBase):
         self.draw_quad_mesh = self._renderer.draw_quad_mesh
         self.copy_from_bbox = self._renderer.copy_from_bbox
 
-    @cbook.deprecated("3.4")
+    @_api.deprecated("3.4")
     def get_content_extents(self):
         orig_img = np.asarray(self.buffer_rgba())
         slice_y, slice_x = cbook._get_nonzero_slices(orig_img[..., 3])
         return (slice_x.start, slice_y.start,
                 slice_x.stop - slice_x.start, slice_y.stop - slice_y.start)
 
-    @cbook.deprecated("3.4")
+    @_api.deprecated("3.4")
     def tostring_rgba_minimized(self):
         extents = self.get_content_extents()
         bbox = [[extents[0], self.height - (extents[1] + extents[3])],
@@ -247,8 +245,7 @@ class RendererAgg(RendererBase):
         d /= 64.0
         return w, h, d
 
-    @cbook._delete_parameter("3.2", "ismath")
-    def draw_tex(self, gc, x, y, s, prop, angle, ismath='TeX!', mtext=None):
+    def draw_tex(self, gc, x, y, s, prop, angle, *, mtext=None):
         # docstring inherited
         # todo, handle props, angle, origins
         size = prop.get_size_in_points()
@@ -525,15 +522,13 @@ class FigureCanvasAgg(FigureCanvasBase):
 
     @_check_savefig_extra_args(
         extra_kwargs=["quality", "optimize", "progressive"])
-    @cbook._delete_parameter("3.2", "dryrun")
     @cbook._delete_parameter("3.3", "quality",
                              alternative="pil_kwargs={'quality': ...}")
     @cbook._delete_parameter("3.3", "optimize",
                              alternative="pil_kwargs={'optimize': ...}")
     @cbook._delete_parameter("3.3", "progressive",
                              alternative="pil_kwargs={'progressive': ...}")
-    def print_jpg(self, filename_or_obj, *args, dryrun=False, pil_kwargs=None,
-                  **kwargs):
+    def print_jpg(self, filename_or_obj, *args, pil_kwargs=None, **kwargs):
         """
         Write the figure to a JPEG file.
 
@@ -569,8 +564,6 @@ class FigureCanvasAgg(FigureCanvasBase):
             FigureCanvasAgg.draw(self)
         finally:
             self.figure.set_facecolor((r, g, b, a))
-        if dryrun:
-            return
         if pil_kwargs is None:
             pil_kwargs = {}
         for k in ["quality", "optimize", "progressive"]:
@@ -594,11 +587,8 @@ class FigureCanvasAgg(FigureCanvasBase):
     print_jpeg = print_jpg
 
     @_check_savefig_extra_args
-    @cbook._delete_parameter("3.2", "dryrun")
-    def print_tif(self, filename_or_obj, *, dryrun=False, pil_kwargs=None):
+    def print_tif(self, filename_or_obj, *, pil_kwargs=None):
         FigureCanvasAgg.draw(self)
-        if dryrun:
-            return
         if pil_kwargs is None:
             pil_kwargs = {}
         pil_kwargs.setdefault("dpi", (self.figure.dpi, self.figure.dpi))

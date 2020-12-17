@@ -135,8 +135,7 @@ class Text3D(mtext.Text):
     def draw(self, renderer):
         position3d = np.array((self._x, self._y, self._z))
         proj = proj3d.proj_trans_points(
-            [position3d, position3d + self._dir_vec],
-            renderer.M)
+            [position3d, position3d + self._dir_vec], self.axes.M)
         dx = proj[0][1] - proj[0][0]
         dy = proj[1][1] - proj[1][0]
         angle = math.degrees(math.atan2(dy, dx))
@@ -213,7 +212,7 @@ class Line3D(lines.Line2D):
     @artist.allow_rasterization
     def draw(self, renderer):
         xs3d, ys3d, zs3d = self._verts3d
-        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
+        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, self.axes.M)
         self.set_data(xs, ys)
         super().draw(renderer)
         self.stale = False
@@ -297,13 +296,15 @@ class Line3DCollection(LineCollection):
         self._segments3d = segments
         super().set_segments([])
 
-    def do_3d_projection(self, renderer):
+    @cbook._delete_parameter('3.4', 'renderer')
+    def do_3d_projection(self, renderer=None):
         """
         Project the points according to renderer matrix.
         """
-        xyslist = [
-            proj3d.proj_trans_points(points, renderer.M) for points in
-            self._segments3d]
+        # see _update_scalarmappable docstring for why this must be here
+        _update_scalarmappable(self)
+        xyslist = [proj3d.proj_trans_points(points, self.axes.M)
+                   for points in self._segments3d]
         segments_2d = [np.column_stack([xs, ys]) for xs, ys, zs in xyslist]
         LineCollection.set_segments(self, segments_2d)
 
@@ -316,7 +317,7 @@ class Line3DCollection(LineCollection):
     @artist.allow_rasterization
     def draw(self, renderer, project=False):
         if project:
-            self.do_3d_projection(renderer)
+            self.do_3d_projection()
         super().draw(renderer)
 
 
@@ -348,10 +349,12 @@ class Patch3D(Patch):
     def get_facecolor(self):
         return self._facecolor2d
 
-    def do_3d_projection(self, renderer):
+    @cbook._delete_parameter('3.4', 'renderer')
+    def do_3d_projection(self, renderer=None):
         s = self._segment3d
         xs, ys, zs = zip(*s)
-        vxs, vys, vzs, vis = proj3d.proj_transform_clip(xs, ys, zs, renderer.M)
+        vxs, vys, vzs, vis = proj3d.proj_transform_clip(xs, ys, zs,
+                                                        self.axes.M)
         self._path2d = mpath.Path(np.column_stack([vxs, vys]))
         # FIXME: coloring
         self._facecolor2d = self._facecolor3d
@@ -372,10 +375,12 @@ class PathPatch3D(Patch3D):
         Patch3D.set_3d_properties(self, path.vertices, zs=zs, zdir=zdir)
         self._code3d = path.codes
 
-    def do_3d_projection(self, renderer):
+    @cbook._delete_parameter('3.4', 'renderer')
+    def do_3d_projection(self, renderer=None):
         s = self._segment3d
         xs, ys, zs = zip(*s)
-        vxs, vys, vzs, vis = proj3d.proj_transform_clip(xs, ys, zs, renderer.M)
+        vxs, vys, vzs, vis = proj3d.proj_transform_clip(xs, ys, zs,
+                                                        self.axes.M)
         self._path2d = mpath.Path(np.column_stack([vxs, vys]), self._code3d)
         # FIXME: coloring
         self._facecolor2d = self._facecolor3d
@@ -435,6 +440,32 @@ class Patch3DCollection(PatchCollection):
         super().__init__(*args, **kwargs)
         self.set_3d_properties(zs, zdir)
 
+    def get_depthshade(self):
+        return self._depthshade
+
+    def set_depthshade(self, depthshade):
+        """
+        Set whether depth shading is performed on collection members.
+
+        Parameters
+        ----------
+        depthshade : bool
+            Whether to shade the patches in order to give the appearance of
+            depth.
+        """
+        self._depthshade = depthshade
+        self.stale = True
+
+    def set_facecolor(self, c):
+        # docstring inherited
+        super().set_facecolor(c)
+        self._facecolor3d = self.get_facecolor()
+
+    def set_edgecolor(self, c):
+        # docstring inherited
+        super().set_edgecolor(c)
+        self._edgecolor3d = self.get_edgecolor()
+
     def set_sort_zpos(self, val):
         """Set the position to use for z-sorting."""
         self._sort_zpos = val
@@ -455,20 +486,24 @@ class Patch3DCollection(PatchCollection):
         self._edgecolor3d = self.get_edgecolor()
         self.stale = True
 
-    def do_3d_projection(self, renderer):
+    @cbook._delete_parameter('3.4', 'renderer')
+    def do_3d_projection(self, renderer=None):
+        # see _update_scalarmappable docstring for why this must be here
+        _update_scalarmappable(self)
         xs, ys, zs = self._offsets3d
-        vxs, vys, vzs, vis = proj3d.proj_transform_clip(xs, ys, zs, renderer.M)
+        vxs, vys, vzs, vis = proj3d.proj_transform_clip(xs, ys, zs,
+                                                        self.axes.M)
 
         fcs = (_zalpha(self._facecolor3d, vzs) if self._depthshade else
                self._facecolor3d)
         fcs = mcolors.to_rgba_array(fcs, self._alpha)
-        self.set_facecolors(fcs)
+        super().set_facecolor(fcs)
 
         ecs = (_zalpha(self._edgecolor3d, vzs) if self._depthshade else
                self._edgecolor3d)
         ecs = mcolors.to_rgba_array(ecs, self._alpha)
-        self.set_edgecolors(ecs)
-        PatchCollection.set_offsets(self, np.column_stack([vxs, vys]))
+        super().set_edgecolor(ecs)
+        super().set_offsets(np.column_stack([vxs, vys]))
 
         if vzs.size > 0:
             return min(vzs)
@@ -523,9 +558,49 @@ class Path3DCollection(PathCollection):
         self._linewidth3d = self.get_linewidth()
         self.stale = True
 
-    def do_3d_projection(self, renderer):
+    def get_depthshade(self):
+        return self._depthshade
+
+    def set_depthshade(self, depthshade):
+        """
+        Set whether depth shading is performed on collection members.
+
+        Parameters
+        ----------
+        depthshade : bool
+            Whether to shade the patches in order to give the appearance of
+            depth.
+        """
+        self._depthshade = depthshade
+        self.stale = True
+
+    def set_facecolor(self, c):
+        # docstring inherited
+        super().set_facecolor(c)
+        self._facecolor3d = self.get_facecolor()
+
+    def set_edgecolor(self, c):
+        # docstring inherited
+        super().set_edgecolor(c)
+        self._edgecolor3d = self.get_edgecolor()
+
+    def set_sizes(self, sizes, dpi=72.0):
+        # docstring inherited
+        super().set_sizes(sizes, dpi=dpi)
+        self._sizes3d = self.get_sizes()
+
+    def set_linewidth(self, lw):
+        # docstring inherited
+        super().set_linewidth(lw)
+        self._linewidth3d = self.get_linewidth()
+
+    @cbook._delete_parameter('3.4', 'renderer')
+    def do_3d_projection(self, renderer=None):
+        # see _update_scalarmappable docstring for why this must be here
+        _update_scalarmappable(self)
         xs, ys, zs = self._offsets3d
-        vxs, vys, vzs, vis = proj3d.proj_transform_clip(xs, ys, zs, renderer.M)
+        vxs, vys, vzs, vis = proj3d.proj_transform_clip(xs, ys, zs,
+                                                        self.axes.M)
 
         fcs = (_zalpha(self._facecolor3d, vzs) if self._depthshade else
                self._facecolor3d)
@@ -556,14 +631,85 @@ class Path3DCollection(PathCollection):
         fcs = mcolors.to_rgba_array(fcs, self._alpha)
         ecs = mcolors.to_rgba_array(ecs, self._alpha)
 
-        self.set_edgecolors(ecs)
-        self.set_facecolors(fcs)
-        self.set_sizes(sizes)
-        self.set_linewidth(lws)
+        super().set_edgecolor(ecs)
+        super().set_facecolor(fcs)
+        super().set_sizes(sizes)
+        super().set_linewidth(lws)
 
         PathCollection.set_offsets(self, vps)
 
         return np.min(vzs) if vzs.size else np.nan
+
+
+def _update_scalarmappable(sm):
+    """
+    Update a 3D ScalarMappable.
+
+    With ScalarMappable objects if the data, colormap, or norm are
+    changed, we need to update the computed colors.  This is handled
+    by the base class method update_scalarmappable.  This method works
+    by, detecting if work needs to be done, and if so stashing it on
+    the ``self._facecolors`` attribute.
+
+    With 3D collections we internally sort the components so that
+    things that should be "in front" are rendered later to simulate
+    having a z-buffer (in addition to doing the projections).  This is
+    handled in the ``do_3d_projection`` methods which are called from the
+    draw method of the 3D Axes.  These methods:
+
+    - do the projection from 3D -> 2D
+    - internally sort based on depth
+    - stash the results of the above in the 2D analogs of state
+    - return the z-depth of the whole artist
+
+    the last step is so that we can, at the Axes level, sort the children by
+    depth.
+
+    The base `draw` method of the 2D artists unconditionally calls
+    update_scalarmappable and rely on the method's internal caching logic to
+    lazily evaluate.
+
+    These things together mean you can have the sequence of events:
+
+    - we create the artist, do the color mapping and stash the results
+      in a 3D specific state.
+    - change something about the ScalarMappable that marks it as in
+      need of an update (`ScalarMappable.changed` and friends).
+    - We call do_3d_projection and shuffle the stashed colors into the
+      2D version of face colors
+    - the draw method calls the update_scalarmappable method which
+      overwrites our shuffled colors
+    - we get a render that is wrong
+    - if we re-render (either with a second save or implicitly via
+      tight_layout / constrained_layout / bbox_inches='tight' (ex via
+      inline's defaults)) we again shuffle the 3D colors
+    - because the CM is not marked as changed update_scalarmappable is
+      a no-op and we get a correct looking render.
+
+    This function is an internal helper to:
+
+    - sort out if we need to do the color mapping at all (has data!)
+    - sort out if update_scalarmappable is going to be a no-op
+    - copy the data over from the 2D -> 3D version
+
+    This must be called first thing in do_3d_projection to make sure that
+    the correct colors get shuffled.
+
+    Parameters
+    ----------
+    sm : ScalarMappable
+        The ScalarMappable to update and stash the 3D data from
+
+    """
+    if sm._A is None:
+        return
+    copy_state = sm._update_dict['array']
+    ret = sm.update_scalarmappable()
+    if copy_state:
+        if sm._is_filled:
+            sm._facecolor3d = sm._facecolors
+        elif sm._is_stroked:
+            sm._edgecolor3d = sm._edgecolors
 
 
 def patch_collection_2d_to_3d(col, zs=0, zdir='z', depthshade=True):
@@ -688,8 +834,8 @@ class Poly3DCollection(PolyCollection):
         self.update_scalarmappable()
         self._sort_zpos = None
         self.set_zsort('average')
-        self._facecolors3d = PolyCollection.get_facecolor(self)
-        self._edgecolors3d = PolyCollection.get_edgecolor(self)
+        self._facecolor3d = PolyCollection.get_facecolor(self)
+        self._edgecolor3d = PolyCollection.get_edgecolor(self)
         self._alpha3d = PolyCollection.get_alpha(self)
         self.stale = True
 
@@ -698,21 +844,20 @@ class Poly3DCollection(PolyCollection):
         self._sort_zpos = val
         self.stale = True
 
-    def do_3d_projection(self, renderer):
+    @cbook._delete_parameter('3.4', 'renderer')
+    def do_3d_projection(self, renderer=None):
         """
         Perform the 3D projection for this object.
         """
-        # FIXME: This may no longer be needed?
-        if self._A is not None:
-            self.update_scalarmappable()
-            self._facecolors3d = self._facecolors
+        # see _update_scalarmappable docstring for why this must be here
+        _update_scalarmappable(self)
 
-        txs, tys, tzs = proj3d._proj_transform_vec(self._vec, renderer.M)
+        txs, tys, tzs = proj3d._proj_transform_vec(self._vec, self.axes.M)
         xyzlist = [(txs[sl], tys[sl], tzs[sl]) for sl in self._segslices]
 
         # This extra fuss is to re-order face / edge colors
-        cface = self._facecolors3d
-        cedge = self._edgecolors3d
+        cface = self._facecolor3d
+        cedge = self._edgecolor3d
         if len(cface) != len(xyzlist):
             cface = cface.repeat(len(xyzlist), axis=0)
         if len(cedge) != len(xyzlist):
@@ -737,13 +882,13 @@ class Poly3DCollection(PolyCollection):
         else:
             PolyCollection.set_verts(self, segments_2d, self._closed)
 
-        if len(self._edgecolors3d) != len(cface):
-            self._edgecolors2d = self._edgecolors3d
+        if len(self._edgecolor3d) != len(cface):
+            self._edgecolors2d = self._edgecolor3d
 
         # Return zorder value
         if self._sort_zpos is not None:
             zvec = np.array([[0], [0], [self._sort_zpos], [1]])
-            ztrans = proj3d._proj_transform_vec(zvec, renderer.M)
+            ztrans = proj3d._proj_transform_vec(zvec, self.axes.M)
             return ztrans[2][0]
         elif tzs.size > 0:
             # FIXME: Some results still don't look quite right.
@@ -754,24 +899,26 @@ class Poly3DCollection(PolyCollection):
             return np.nan
 
     def set_facecolor(self, colors):
+        # docstring inherited
         super().set_facecolor(colors)
-        self._facecolors3d = PolyCollection.get_facecolor(self)
+        self._facecolor3d = PolyCollection.get_facecolor(self)
 
     def set_edgecolor(self, colors):
+        # docstring inherited
         super().set_edgecolor(colors)
-        self._edgecolors3d = PolyCollection.get_edgecolor(self)
+        self._edgecolor3d = PolyCollection.get_edgecolor(self)
 
     def set_alpha(self, alpha):
         # docstring inherited
         artist.Artist.set_alpha(self, alpha)
         try:
-            self._facecolors3d = mcolors.to_rgba_array(
-                self._facecolors3d, self._alpha)
+            self._facecolor3d = mcolors.to_rgba_array(
+                self._facecolor3d, self._alpha)
         except (AttributeError, TypeError, IndexError):
             pass
         try:
             self._edgecolors = mcolors.to_rgba_array(
-                    self._edgecolors3d, self._alpha)
+                    self._edgecolor3d, self._alpha)
         except (AttributeError, TypeError, IndexError):
             pass
         self.stale = True
@@ -826,13 +973,6 @@ def rotate_axes(xs, ys, zs, zdir):
 
     else:
         return xs, ys, zs
-
-
-def _get_colors(c, num):
-    """Stretch the color argument to provide the required number *num*."""
-    return np.broadcast_to(
-        mcolors.to_rgba_array(c) if len(c) else [0, 0, 0, 0],
-        (num, 4))
 
 
 def _zalpha(colors, zs):

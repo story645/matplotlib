@@ -25,8 +25,8 @@ from matplotlib.backend_bases import (
     _Backend, _check_savefig_extra_args, FigureCanvasBase, FigureManagerBase,
     GraphicsContextBase, RendererBase)
 from matplotlib.cbook import is_writable_file_like, file_requires_unicode
-from matplotlib.font_manager import is_opentype_cff_font, get_font
-from matplotlib.ft2font import LOAD_NO_HINTING
+from matplotlib.font_manager import get_font
+from matplotlib.ft2font import LOAD_NO_HINTING, LOAD_NO_SCALE
 from matplotlib._ttconv import convert_ttf_to_ps
 from matplotlib.mathtext import MathTextParser
 from matplotlib._mathtext_data import uni2type1
@@ -134,6 +134,86 @@ def _move_path_to_path_or_stream(src, dst):
         shutil.move(src, dst, copy_function=shutil.copyfile)
 
 
+def _font_to_ps_type3(font_path, glyph_ids):
+    """
+    Subset *glyph_ids* from the font at *font_path* into a Type 3 font.
+
+    Parameters
+    ----------
+    font_path : path-like
+        Path to the font to be subsetted.
+    glyph_ids : list of int
+        The glyph indices to include in the subsetted font.
+
+    Returns
+    -------
+    str
+        The string representation of a Type 3 font, which can be included
+        verbatim into a PostScript file.
+    """
+    font = get_font(font_path, hinting_factor=1)
+
+    preamble = """\
+%!PS-Adobe-3.0 Resource-Font
+%%Creator: Converted from TrueType to Type 3 by Matplotlib.
+10 dict begin
+/FontName /{font_name} def
+/PaintType 0 def
+/FontMatrix [{inv_units_per_em} 0 0 {inv_units_per_em} 0 0] def
+/FontBBox [{bbox}] def
+/FontType 3 def
+/Encoding [{encoding}] def
+/CharStrings {num_glyphs} dict dup begin
+/.notdef 0 def
+""".format(font_name=font.postscript_name,
+           inv_units_per_em=1 / font.units_per_EM,
+           bbox=" ".join(map(str, font.bbox)),
+           encoding=" ".join("/{}".format(font.get_glyph_name(glyph_id))
+                             for glyph_id in glyph_ids),
+           num_glyphs=len(glyph_ids) + 1)
+    postamble = """
+end readonly def
+
+/BuildGlyph {
+ exch begin
+ CharStrings exch
+ 2 copy known not {pop /.notdef} if
+ true 3 1 roll get exec
+ end
+} d
+
+/BuildChar {
+ 1 index /Encoding get exch get
+ 1 index /BuildGlyph get exec
+} d
+
+FontName currentdict end definefont pop
+"""
+
+    entries = []
+    for glyph_id in glyph_ids:
+        g = font.load_glyph(glyph_id, LOAD_NO_SCALE)
+        v, c = font.get_path()
+        entries.append(
+            "/%(name)s{%(bbox)s sc\n" % {
+                "name": font.get_glyph_name(glyph_id),
+                "bbox": " ".join(map(str, [g.horiAdvance, 0, *g.bbox])),
+            }
+            + _path.convert_to_string(
+                # Convert back to TrueType's internal units (1/64's).
+                # (Other dimensions are already in these units.)
+                Path(v * 64, c), None, None, False, None, 0,
+                # No code for quad Beziers triggers auto-conversion to cubics.
+                # Drop intermediate closepolys (relying on the outline
+                # decomposer always explicitly moving to the closing point
+                # first).
+                [b"m", b"l", b"", b"c", b""], True).decode("ascii")
+            + "ce} d"
+        )
+
+    return preamble + "\n".join(entries) + postamble
+
+
 class RendererPS(_backend_pdf_ps.RendererPDFPSBase):
     """
     The renderer handles all the drawing primitives using a graphics
@@ -142,6 +222,11 @@ class RendererPS(_backend_pdf_ps.RendererPDFPSBase):
 
     _afm_font_dir = cbook._get_data_path("fonts/afm")
     _use_afm_rc_name = "ps.useafm"
+
+    mathtext_parser = cbook.deprecated("3.4")(property(
+        lambda self: MathTextParser("PS")))
+    used_characters = cbook.deprecated("3.3")(property(
+        lambda self: self._character_tracker.used_characters))
 
     def __init__(self, width, height, pswriter, imagedpi=72):
         # Although postscript itself is dpi independent, we need to inform the
@@ -169,22 +254,12 @@ class RendererPS(_backend_pdf_ps.RendererPDFPSBase):
 
         self._character_tracker = _backend_pdf_ps.CharacterTracker()
 
-    @cbook.deprecated("3.3")
-    @property
-    def mathtext_parser(self):
-        return MathTextParser("PS")
-
-    @cbook.deprecated("3.3")
-    @property
-    def used_characters(self):
-        return self._character_tracker.used_characters
-
-    @cbook.deprecated("3.3")
+    @_api.deprecated("3.3")
     def track_characters(self, *args, **kwargs):
         """Keep track of which characters are required from each font."""
         self._character_tracker.track(*args, **kwargs)
 
-    @cbook.deprecated("3.3")
+    @_api.deprecated("3.3")
     def merge_used_characters(self, *args, **kwargs):
         self._character_tracker.merge(*args, **kwargs)
 
@@ -205,15 +280,29 @@ class RendererPS(_backend_pdf_ps.RendererPDFPSBase):
             if store:
                 self.linewidth = linewidth
 
+    @staticmethod
+    def _linejoin_cmd(linejoin):
+        # Support for directly passing integer values is for backcompat.
+        linejoin = {'miter': 0, 'round': 1, 'bevel': 2, 0: 0, 1: 1, 2: 2}[
+            linejoin]
+        return f"{linejoin:d} setlinejoin\n"
+
     def set_linejoin(self, linejoin, store=True):
         if linejoin != self.linejoin:
-            self._pswriter.write("%d setlinejoin\n" % linejoin)
+            self._pswriter.write(self._linejoin_cmd(linejoin))
             if store:
                 self.linejoin = linejoin
 
+    @staticmethod
+    def _linecap_cmd(linecap):
+        # Support for directly passing integer values is for backcompat.
+        linecap = {'butt': 0, 'round': 1, 'projecting': 2, 0: 0, 1: 1, 2: 2}[
+            linecap]
+        return f"{linecap:d} setlinecap\n"
+
     def set_linecap(self, linecap, store=True):
         if linecap != self.linecap:
-            self._pswriter.write("%d setlinecap\n" % linecap)
+            self._pswriter.write(self._linecap_cmd(linecap))
             if store:
                 self.linecap = linecap
 
@@ -232,13 +321,8 @@ class RendererPS(_backend_pdf_ps.RendererPDFPSBase):
             self.linedash = (offset, seq)
 
     def set_font(self, fontname, fontsize, store=True):
-        if mpl.rcParams['ps.useafm']:
-            return
         if (fontname, fontsize) != (self.fontname, self.fontsize):
-            out = ("/%s findfont\n"
-                   "%1.3f scalefont\n"
-                   "setfont\n" % (fontname, fontsize))
-            self._pswriter.write(out)
+            self._pswriter.write(f"/{fontname} {fontsize:1.3f} selectfont\n")
             if store:
                 self.fontname = fontname
                 self.fontsize = fontsize
@@ -397,10 +481,8 @@ newpath
         stroke = lw > 0 and alpha > 0
         if stroke:
             ps_cmd.append('%.1f setlinewidth' % lw)
-            jint = gc.get_joinstyle()
-            ps_cmd.append('%d setlinejoin' % jint)
-            cint = gc.get_capstyle()
-            ps_cmd.append('%d setlinecap' % cint)
+            ps_cmd.append(self._linejoin_cmd(gc.get_joinstyle()))
+            ps_cmd.append(self._linecap_cmd(gc.get_capstyle()))
 
         ps_cmd.append(self._convert_path(marker_path, marker_trans,
                                          simplify=False))
@@ -529,20 +611,16 @@ grestore
         if ismath == 'TeX':
             return self.draw_tex(gc, x, y, s, prop, angle)
 
-        elif ismath:
+        if ismath:
             return self.draw_mathtext(gc, x, y, s, prop, angle)
 
-        elif mpl.rcParams['ps.useafm']:
-            self.set_color(*gc.get_rgb())
-
+        if mpl.rcParams['ps.useafm']:
             font = self._get_font_afm(prop)
-            fontname = font.get_fontname()
-            fontsize = prop.get_size_in_points()
-            scale = 0.001 * fontsize
+            scale = 0.001 * prop.get_size_in_points()
 
             thisx = 0
-            last_name = None
-            lines = []
+            last_name = None  # kerns returns 0 for None.
+            xs_names = []
             for c in s:
                 name = uni2type1.get(ord(c), f"uni{ord(c):04X}")
                 try:
@@ -550,54 +628,32 @@ grestore
                 except KeyError:
                     name = 'question'
                     width = font.get_width_char('?')
-                if last_name is not None:
-                    kern = font.get_kern_dist_from_name(last_name, name)
-                else:
-                    kern = 0
+                kern = font.get_kern_dist_from_name(last_name, name)
                 last_name = name
                 thisx += kern * scale
-
-                lines.append('%f 0 m /%s glyphshow' % (thisx, name))
-
+                xs_names.append((thisx, name))
                 thisx += width * scale
-
-            thetext = "\n".join(lines)
-            self._pswriter.write(f"""\
-gsave
-/{fontname} findfont
-{fontsize} scalefont
-setfont
-{x:f} {y:f} translate
-{angle:f} rotate
-{thetext}
-grestore
-""")
 
         else:
             font = self._get_font_ttf(prop)
             font.set_text(s, 0, flags=LOAD_NO_HINTING)
             self._character_tracker.track(font, s)
+            xs_names = [(item.x, font.get_glyph_name(item.glyph_idx))
+                        for item in _text_layout.layout(s, font)]
 
-            self.set_color(*gc.get_rgb())
-            ps_name = (font.postscript_name
-                       .encode('ascii', 'replace').decode('ascii'))
-            self.set_font(ps_name, prop.get_size_in_points())
-
-            thetext = '\n'.join(
-                '{:f} 0 m /{:s} glyphshow'
-                .format(item.x, font.get_glyph_name(item.glyph_idx))
-                for item in _text_layout.layout(s, font))
-            self._pswriter.write(f"""\
+        self.set_color(*gc.get_rgb())
+        ps_name = (font.postscript_name
+                   .encode("ascii", "replace").decode("ascii"))
+        self.set_font(ps_name, prop.get_size_in_points())
+        thetext = "\n".join(f"{x:f} 0 m /{name:s} glyphshow"
+                            for x, name in xs_names)
+        self._pswriter.write(f"""\
 gsave
 {x:f} {y:f} translate
 {angle:f} rotate
 {thetext}
 grestore
 """)
-
-    def new_gc(self):
-        # docstring inherited
-        return GraphicsContextPS()
 
     def draw_mathtext(self, gc, x, y, s, prop, angle):
         """Draw the math text using matplotlib.mathtext."""
@@ -619,9 +675,7 @@ grestore
             if (font.postscript_name, fontsize) != lastfont:
                 lastfont = font.postscript_name, fontsize
                 self._pswriter.write(
-                    f"/{font.postscript_name} findfont\n"
-                    f"{fontsize} scalefont\n"
-                    f"setfont\n")
+                    f"/{font.postscript_name} {fontsize} selectfont\n")
             symbol_name = (
                 font.get_name_char(chr(num)) if isinstance(font, AFM) else
                 font.get_glyph_name(font.get_char_index(num)))
@@ -703,10 +757,8 @@ grestore
 
         if mightstroke:
             self.set_linewidth(gc.get_linewidth())
-            jint = gc.get_joinstyle()
-            self.set_linejoin(jint)
-            cint = gc.get_capstyle()
-            self.set_linecap(cint)
+            self.set_linejoin(gc.get_joinstyle())
+            self.set_linecap(gc.get_capstyle())
             self.set_linedash(*gc.get_dashes())
             self.set_color(*gc.get_rgb()[:3])
         write('gsave\n')
@@ -759,6 +811,7 @@ def _is_transparent(rgb_or_rgba):
         return False
 
 
+@_api.deprecated("3.4", alternative="GraphicsContextBase")
 class GraphicsContextPS(GraphicsContextBase):
     def get_capstyle(self):
         return {'butt': 0, 'round': 1, 'projecting': 2}[super().get_capstyle()]
@@ -828,11 +881,10 @@ class FigureCanvasPS(FigureCanvasBase):
                 orientation=orientation, papertype=papertype, **kwargs)
 
     @_check_savefig_extra_args
-    @cbook._delete_parameter("3.2", "dryrun")
     def _print_figure(
             self, outfile, format, *,
             dpi, dsc_comments, orientation, papertype,
-            dryrun=False, bbox_inches_restore=None):
+            bbox_inches_restore=None):
         """
         Render the figure to a filesystem path or a file-like object.
 
@@ -880,14 +932,7 @@ class FigureCanvasPS(FigureCanvasBase):
             rotation = 90
         bbox = (llx, lly, urx, ury)
 
-        if dryrun:
-            class NullWriter:
-                def write(self, *args, **kwargs):
-                    pass
-
-            self._pswriter = NullWriter()
-        else:
-            self._pswriter = StringIO()
+        self._pswriter = StringIO()
 
         # mixed mode rendering
         ps_renderer = RendererPS(width, height, self._pswriter, imagedpi=dpi)
@@ -896,9 +941,6 @@ class FigureCanvasPS(FigureCanvasBase):
             bbox_inches_restore=bbox_inches_restore)
 
         self.figure.draw(renderer)
-
-        if dryrun:  # return immediately if dryrun (tightbbox=True)
-            return
 
         def print_figure_impl(fh):
             # write the PostScript headers
@@ -933,22 +975,18 @@ class FigureCanvasPS(FigureCanvasBase):
                     # Can't use more than 255 chars from a single Type 3 font.
                     if len(glyph_ids) > 255:
                         fonttype = 42
-                    # The ttf to ps (subsetting) support doesn't work for
-                    # OpenType fonts that are Postscript inside (like the STIX
-                    # fonts).  This will simply turn that off to avoid errors.
-                    if is_opentype_cff_font(font_path):
-                        raise RuntimeError(
-                            "OpenType CFF fonts can not be saved using "
-                            "the internal Postscript backend at this "
-                            "time; consider using the Cairo backend")
                     fh.flush()
-                    try:
-                        convert_ttf_to_ps(os.fsencode(font_path),
-                                          fh, fonttype, glyph_ids)
-                    except RuntimeError:
-                        _log.warning("The PostScript backend does not "
-                                     "currently support the selected font.")
-                        raise
+                    if fonttype == 3:
+                        fh.write(_font_to_ps_type3(font_path, glyph_ids))
+                    else:
+                        try:
+                            convert_ttf_to_ps(os.fsencode(font_path),
+                                              fh, fonttype, glyph_ids)
+                        except RuntimeError:
+                            _log.warning(
+                                "The PostScript backend does not currently "
+                                "support the selected font.")
+                            raise
             print("end", file=fh)
             print("%%EndProlog", file=fh)
 
@@ -1006,11 +1044,10 @@ class FigureCanvasPS(FigureCanvasBase):
                     print_figure_impl(fh)
 
     @_check_savefig_extra_args
-    @cbook._delete_parameter("3.2", "dryrun")
     def _print_figure_tex(
             self, outfile, format, *,
             dpi, dsc_comments, orientation, papertype,
-            dryrun=False, bbox_inches_restore=None):
+            bbox_inches_restore=None):
         """
         If :rc:`text.usetex` is True, a temporary pair of tex/eps files
         are created to allow tex to manage the text layout via the PSFrags
@@ -1030,14 +1067,7 @@ class FigureCanvasPS(FigureCanvasBase):
         ury = lly + self.figure.bbox.height
         bbox = (llx, lly, urx, ury)
 
-        if dryrun:
-            class NullWriter:
-                def write(self, *args, **kwargs):
-                    pass
-
-            self._pswriter = NullWriter()
-        else:
-            self._pswriter = StringIO()
+        self._pswriter = StringIO()
 
         # mixed mode rendering
         ps_renderer = RendererPS(width, height, self._pswriter, imagedpi=dpi)
@@ -1046,9 +1076,6 @@ class FigureCanvasPS(FigureCanvasBase):
                                      bbox_inches_restore=bbox_inches_restore)
 
         self.figure.draw(renderer)
-
-        if dryrun:  # return immediately if dryrun (tightbbox=True)
-            return
 
         # write to a temp file, we'll move it to outfile when done
         with TemporaryDirectory() as tmpdir:
@@ -1334,16 +1361,20 @@ FigureManagerPS = FigureManagerBase
 # The usage comments use the notation of the operator summary
 # in the PostScript Language reference manual.
 psDefs = [
+    # name proc  *d*  -
+    "/d { bind def } bind def",
     # x y  *m*  -
-    "/m { moveto } bind def",
+    "/m { moveto } d",
     # x y  *l*  -
-    "/l { lineto } bind def",
+    "/l { lineto } d",
     # x y  *r*  -
-    "/r { rlineto } bind def",
+    "/r { rlineto } d",
     # x1 y1 x2 y2 x y *c*  -
-    "/c { curveto } bind def",
-    # *closepath*  -
-    "/cl { closepath } bind def",
+    "/c { curveto } d",
+    # *cl*  -
+    "/cl { closepath } d",
+    # *ce*  -
+    "/ce { closepath eofill } d",
     # w h x y  *box*  -
     """/box {
       m
@@ -1351,13 +1382,15 @@ psDefs = [
       0 exch r
       neg 0 r
       cl
-    } bind def""",
+    } d""",
     # w h x y  *clipbox*  -
     """/clipbox {
       box
       clip
       newpath
-    } bind def""",
+    } d""",
+    # wx wy llx lly urx ury  *setcachedevice*  -
+    "/sc { setcachedevice } d",
 ]
 
 

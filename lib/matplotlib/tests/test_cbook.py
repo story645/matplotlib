@@ -11,6 +11,7 @@ from numpy.testing import (assert_array_equal, assert_approx_equal,
                            assert_array_almost_equal)
 import pytest
 
+from matplotlib import _api
 import matplotlib.cbook as cbook
 import matplotlib.colors as mcolors
 from matplotlib.cbook import MatplotlibDeprecationWarning, delete_masked_points
@@ -144,7 +145,6 @@ class Test_boxplot_stats:
     def test_results_withlabels(self):
         labels = ['Test1', 2, 'ardvark', 4]
         results = cbook.boxplot_stats(self.data, labels=labels)
-        res = results[0]
         for lab, res in zip(labels, results):
             assert res['label'] == lab
 
@@ -248,10 +248,10 @@ def raising_cb_reg(func):
     class TestException(Exception):
         pass
 
-    def raising_function():
+    def raise_runtime_error():
         raise RuntimeError
 
-    def raising_function_VE():
+    def raise_value_error():
         raise ValueError
 
     def transformer(excp):
@@ -261,15 +261,15 @@ def raising_cb_reg(func):
 
     # old default
     cb_old = cbook.CallbackRegistry(exception_handler=None)
-    cb_old.connect('foo', raising_function)
+    cb_old.connect('foo', raise_runtime_error)
 
     # filter
     cb_filt = cbook.CallbackRegistry(exception_handler=transformer)
-    cb_filt.connect('foo', raising_function)
+    cb_filt.connect('foo', raise_runtime_error)
 
     # filter
     cb_filt_pass = cbook.CallbackRegistry(exception_handler=transformer)
-    cb_filt_pass.connect('foo', raising_function_VE)
+    cb_filt_pass.connect('foo', raise_value_error)
 
     return pytest.mark.parametrize('cb, excp',
                                    [[cb_old, RuntimeError],
@@ -309,6 +309,7 @@ fail_mapping = (
 )
 
 pass_mapping = (
+    (None, {}, {}),
     ({'a': 1, 'b': 2}, {'a': 1, 'b': 2}, {}),
     ({'b': 2}, {'a': 2}, {'alias_mapping': {'a': ['a', 'b']}}),
     ({'b': 2}, {'a': 2},
@@ -329,14 +330,14 @@ pass_mapping = (
 @pytest.mark.parametrize('inp, kwargs_to_norm', fail_mapping)
 def test_normalize_kwargs_fail(inp, kwargs_to_norm):
     with pytest.raises(TypeError), \
-         cbook._suppress_matplotlib_deprecation_warning():
+         _api.suppress_matplotlib_deprecation_warning():
         cbook.normalize_kwargs(inp, **kwargs_to_norm)
 
 
 @pytest.mark.parametrize('inp, expected, kwargs_to_norm',
                          pass_mapping)
 def test_normalize_kwargs_pass(inp, expected, kwargs_to_norm):
-    with cbook._suppress_matplotlib_deprecation_warning():
+    with _api.suppress_matplotlib_deprecation_warning():
         # No other warning should be emitted.
         assert expected == cbook.normalize_kwargs(inp, **kwargs_to_norm)
 
@@ -434,9 +435,9 @@ def test_step_fails(args):
 
 
 def test_grouper():
-    class dummy:
+    class Dummy:
         pass
-    a, b, c, d, e = objs = [dummy() for j in range(5)]
+    a, b, c, d, e = objs = [Dummy() for _ in range(5)]
     g = cbook.Grouper()
     g.join(*objs)
     assert set(list(g)[0]) == set(objs)
@@ -454,9 +455,9 @@ def test_grouper():
 
 
 def test_grouper_private():
-    class dummy:
+    class Dummy:
         pass
-    objs = [dummy() for j in range(5)]
+    objs = [Dummy() for _ in range(5)]
     g = cbook.Grouper()
     g.join(*objs)
     # reach in and touch the internals !
@@ -484,13 +485,13 @@ def test_flatiter():
 
 def test_reshape2d():
 
-    class dummy:
+    class Dummy:
         pass
 
     xnew = cbook._reshape_2D([], 'x')
     assert np.shape(xnew) == (1, 0)
 
-    x = [dummy() for j in range(5)]
+    x = [Dummy() for _ in range(5)]
 
     xnew = cbook._reshape_2D(x, 'x')
     assert np.shape(xnew) == (1, 5)
@@ -499,7 +500,7 @@ def test_reshape2d():
     xnew = cbook._reshape_2D(x, 'x')
     assert np.shape(xnew) == (1, 5)
 
-    x = [[dummy() for j in range(5)] for i in range(3)]
+    x = [[Dummy() for _ in range(5)] for _ in range(3)]
     xnew = cbook._reshape_2D(x, 'x')
     assert np.shape(xnew) == (3, 5)
 
@@ -559,7 +560,7 @@ def test_reshape2d():
 
 
 def test_reshape2d_pandas(pd):
-    # seperate to allow the rest of the tests to run if no pandas...
+    # separate to allow the rest of the tests to run if no pandas...
     X = np.arange(30).reshape(10, 3)
     x = pd.DataFrame(X, columns=["a", "b", "c"])
     Xnew = cbook._reshape_2D(x, 'x')
@@ -619,7 +620,7 @@ def test_delete_parameter():
         with pytest.warns(MatplotlibDeprecationWarning):
             func(foo="bar")
 
-    def pyplot_wrapper(foo=cbook.deprecation._deprecated_parameter):
+    def pyplot_wrapper(foo=_api.deprecation._deprecated_parameter):
         func1(foo)
 
     pyplot_wrapper()  # No warning.
@@ -676,9 +677,9 @@ def test_array_patch_perimeters():
 
 def test_setattr_cm():
     class A:
-
         cls_level = object()
         override = object()
+
         def __init__(self):
             self.aardvark = 'aardvark'
             self.override = 'override'
@@ -688,7 +689,7 @@ def test_setattr_cm():
             ...
 
         @classmethod
-        def classy(klass):
+        def classy(cls):
             ...
 
         @staticmethod

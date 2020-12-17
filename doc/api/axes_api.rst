@@ -533,14 +533,6 @@ Interactive
    Axes.mouseover
    Axes.in_axes
 
-   Axes.pick
-   Axes.pickable
-   Axes.get_picker
-   Axes.set_picker
-
-   Axes.set_contains
-   Axes.get_contains
-
    Axes.contains
    Axes.contains_point
 
@@ -595,7 +587,6 @@ non-rectilinear Axes.
    Axes.get_xaxis_transform
    Axes.get_yaxis_transform
    Axes.get_data_ratio
-   Axes.get_data_ratio_log
 
    Axes.get_xaxis_text1_transform
    Axes.get_xaxis_text2_transform

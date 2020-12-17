@@ -25,7 +25,7 @@ import numpy as np
 from matplotlib import _api, animation, cbook
 from matplotlib.cbook import ls_mapper
 from matplotlib.fontconfig_pattern import parse_fontconfig_pattern
-from matplotlib.colors import is_color_like
+from matplotlib.colors import Colormap, is_color_like
 
 # Don't let the original cycler collide with our validating cycler
 from cycler import Cycler, cycler as ccycler
@@ -147,7 +147,7 @@ def validate_bool(b):
         raise ValueError('Could not convert "%s" to bool' % b)
 
 
-@cbook.deprecated("3.3")
+@_api.deprecated("3.3")
 def validate_bool_maybe_none(b):
     """Convert b to ``bool`` or raise, passing through *None*."""
     if isinstance(b, str):
@@ -246,7 +246,7 @@ def _make_type_validator(cls, *, allow_none=False):
             return None
         try:
             return cls(s)
-        except ValueError as e:
+        except (TypeError, ValueError) as e:
             raise ValueError(
                 f'Could not convert {s!r} to {cls.__name__}') from e
 
@@ -310,7 +310,7 @@ validate_toolbar = ValidateInStrings(
     _deprecated_since="3.3")
 
 
-@cbook.deprecated("3.3")
+@_api.deprecated("3.3")
 def _make_nseq_validator(cls, n=None, allow_none=False):
 
     def validator(s):
@@ -336,12 +336,12 @@ def _make_nseq_validator(cls, n=None, allow_none=False):
     return validator
 
 
-@cbook.deprecated("3.3")
+@_api.deprecated("3.3")
 def validate_nseq_float(n):
     return _make_nseq_validator(float, n)
 
 
-@cbook.deprecated("3.3")
+@_api.deprecated("3.3")
 def validate_nseq_int(n):
     return _make_nseq_validator(int, n)
 
@@ -393,6 +393,13 @@ def validate_color(s):
 
 validate_colorlist = _listify_validator(
     validate_color, allow_stringlist=True, doc='return a list of colorspecs')
+
+
+def _validate_cmap(s):
+    cbook._check_isinstance((str, Colormap), cmap=s)
+    return s
+
+
 validate_orientation = ValidateInStrings(
     'orientation', ['landscape', 'portrait'], _deprecated_since="3.3")
 
@@ -666,7 +673,7 @@ validate_svg_fonttype = ValidateInStrings(
     'svg.fonttype', ['none', 'path'], _deprecated_since="3.3")
 
 
-@cbook.deprecated("3.3")
+@_api.deprecated("3.3")
 def validate_hinting(s):
     return _validate_hinting(s)
 
@@ -684,7 +691,7 @@ validate_pgf_texsystem = ValidateInStrings(
     _deprecated_since="3.3")
 
 
-@cbook.deprecated("3.3")
+@_api.deprecated("3.3")
 def validate_movie_writer(s):
     # writers.list() would only list actually available writers, but
     # FFMpeg.isAvailable is slow and not worth paying for at every import.
@@ -971,7 +978,7 @@ def validate_hist_bins(s):
                      " a sequence of floats".format(valid_strs))
 
 
-@cbook.deprecated("3.3")
+@_api.deprecated("3.3")
 def validate_webagg_address(s):
     if s is not None:
         import socket
@@ -1141,7 +1148,7 @@ _validators = {
 
     "image.aspect":          validate_aspect,  # equal, auto, a number
     "image.interpolation":   validate_string,
-    "image.cmap":            validate_string,  # gray, jet, etc.
+    "image.cmap":            _validate_cmap,  # gray, jet, etc.
     "image.lut":             validate_int,  # lookup table
     "image.origin":          ["upper", "lower"],
     "image.resample":        validate_bool,
@@ -1280,15 +1287,14 @@ _validators = {
     "xtick.major.pad":     validate_float,     # distance to label in points
     "xtick.minor.pad":     validate_float,     # distance to label in points
     "xtick.color":         validate_color,     # color of xticks
-    "xtick.labelcolor":    validate_color_or_inherit,
-    # color of xtick labels
+    "xtick.labelcolor":    validate_color_or_inherit,  # color of xtick labels
     "xtick.minor.visible": validate_bool,      # visibility of minor xticks
     "xtick.minor.top":     validate_bool,      # draw top minor xticks
     "xtick.minor.bottom":  validate_bool,      # draw bottom minor xticks
     "xtick.major.top":     validate_bool,      # draw top major xticks
     "xtick.major.bottom":  validate_bool,      # draw bottom major xticks
     "xtick.labelsize":     validate_fontsize,  # fontsize of xtick labels
-    "xtick.direction":     validate_string,    # direction of xticks
+    "xtick.direction":     ["out", "in", "inout"],  # direction of xticks
     "xtick.alignment":     ["center", "right", "left"],
 
     "ytick.left":          validate_bool,      # draw ticks on left side
@@ -1302,15 +1308,14 @@ _validators = {
     "ytick.major.pad":     validate_float,     # distance to label in points
     "ytick.minor.pad":     validate_float,     # distance to label in points
     "ytick.color":         validate_color,     # color of yticks
-    "ytick.labelcolor":    validate_color_or_inherit,
-    # color of ytick labels
+    "ytick.labelcolor":    validate_color_or_inherit,  # color of ytick labels
     "ytick.minor.visible": validate_bool,      # visibility of minor yticks
     "ytick.minor.left":    validate_bool,      # draw left minor yticks
     "ytick.minor.right":   validate_bool,      # draw right minor yticks
     "ytick.major.left":    validate_bool,      # draw left major yticks
     "ytick.major.right":   validate_bool,      # draw right major yticks
     "ytick.labelsize":     validate_fontsize,  # fontsize of ytick labels
-    "ytick.direction":     validate_string,    # direction of yticks
+    "ytick.direction":     ["out", "in", "inout"],  # direction of yticks
     "ytick.alignment":     [
         "center", "top", "bottom", "baseline", "center_baseline"],
 
@@ -1442,8 +1447,6 @@ _validators = {
     "animation.convert_path": validate_string,
      # Additional arguments for convert movie writer (using pipes)
     "animation.convert_args": validate_stringlist,
-
-    "mpl_toolkits.legacy_colorbar": validate_bool,
 
     # Classic (pre 2.0) compatibility mode
     # This is used for things that are hard to make backward compatible

@@ -35,6 +35,7 @@ from cycler import cycler
 import matplotlib
 import matplotlib.colorbar
 import matplotlib.image
+from matplotlib import _api
 from matplotlib import rcsetup, style
 from matplotlib import _pylab_helpers, interactive
 from matplotlib import cbook
@@ -657,7 +658,7 @@ def figure(num=None,  # autoincrement if None, else integer from 1-N
 
     Parameters
     ----------
-    num : int or str, optional
+    num : int or str or `.Figure`, optional
         A unique identifier for the figure.
 
         If a figure with that identifier already exists, this figure is made
@@ -728,6 +729,11 @@ def figure(num=None,  # autoincrement if None, else integer from 1-N
     `~matplotlib.rcParams` defines the default values, which can be modified
     in the matplotlibrc file.
     """
+    if isinstance(num, Figure):
+        if num.canvas.manager is None:
+            raise ValueError("The passed figure is not managed by pyplot")
+        _pylab_helpers.Gcf.set_active(num.canvas.manager)
+        return num
 
     allnums = get_fignums()
     next_num = max(allnums) + 1 if allnums else 1
@@ -759,9 +765,6 @@ def figure(num=None,  # autoincrement if None, else integer from 1-N
                 f"closed and may consume too much memory. (To control this "
                 f"warning, see the rcParam `figure.max_open_warning`).",
                 RuntimeWarning)
-
-        if get_backend().lower() == 'ps':
-            dpi = 72
 
         manager = new_figure_manager(
             num, figsize=figsize, dpi=dpi,
@@ -965,7 +968,7 @@ def axes(arg=None, **kwargs):
         The exact behavior of this function depends on the type:
 
         - *None*: A new full window axes is added using
-          ``subplot(111, **kwargs)``.
+          ``subplot(**kwargs)``.
         - 4-tuple of floats *rect* = ``[left, bottom, width, height]``.
           A new axes is added with dimensions *rect* in normalized
           (0, 1) units using `~.Figure.add_axes` on the current figure.
@@ -1037,7 +1040,7 @@ def axes(arg=None, **kwargs):
     """
 
     if arg is None:
-        return subplot(111, **kwargs)
+        return subplot(**kwargs)
     else:
         return gcf().add_axes(arg, **kwargs)
 
@@ -1055,10 +1058,14 @@ def sca(ax):
     """
     Set the current Axes to *ax* and the current Figure to the parent of *ax*.
     """
-    if not hasattr(ax.figure.canvas, "manager"):
-        raise ValueError("Axes parent figure is not managed by pyplot")
-    _pylab_helpers.Gcf.set_active(ax.figure.canvas.manager)
+    figure(ax.figure)
     ax.figure.sca(ax)
+
+
+def cla():
+    """Clear the current axes."""
+    # Not generated via boilerplate.py to allow a different docstring.
+    return gca().cla()
 
 
 ## More ways of creating axes ##
@@ -1068,8 +1075,8 @@ def subplot(*args, **kwargs):
     """
     Add a subplot to the current figure.
 
-    Wrapper of `.Figure.add_subplot` with a difference in behavior
-    explained in the notes section.
+    Wrapper of `.Figure.add_subplot` with a difference in
+    behavior explained in the notes section.
 
     Call signatures::
 
@@ -1159,7 +1166,7 @@ def subplot(*args, **kwargs):
     two subplots that are otherwise identical to be added to the figure,
     make sure you give them unique labels.
 
-    In rare circumstances, `.add_subplot` may be called with a single
+    In rare circumstances, `.Figure.add_subplot` may be called with a single
     argument, a subplot axes instance already created in the
     present figure but not in the figure's list of axes.
 
@@ -1308,8 +1315,8 @@ def subplots(nrows=1, ncols=1, sharex=False, sharey=False, squeeze=True,
             fig, axs = plt.subplots(2, 2)
 
             # using tuple unpacking for multiple Axes
-            fig, (ax1, ax2) = plt.subplot(1, 2)
-            fig, ((ax1, ax2), (ax3, ax4)) = plt.subplot(2, 2)
+            fig, (ax1, ax2) = plt.subplots(1, 2)
+            fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
 
         The names ``ax`` and pluralized ``axs`` are preferred over ``axes``
         because for the latter it's not clear if it refers to a single
@@ -2007,8 +2014,8 @@ def colormaps():
       for nominal data that has no inherent ordering, where color is used
       only to distinguish categories
 
-    Matplotlib ships with 4 perceptually uniform color maps which are
-    the recommended color maps for sequential data:
+    Matplotlib ships with 4 perceptually uniform colormaps which are
+    the recommended colormaps for sequential data:
 
       =========   ===================================================
       Colormap    Description
@@ -2087,7 +2094,7 @@ def colormaps():
       Colormap    Description
       =========   =======================================================
       autumn      sequential linearly-increasing shades of red-orange-yellow
-      bone        sequential increasing black-white color map with
+      bone        sequential increasing black-white colormap with
                   a tinge of blue, to emulate X-ray film
       cool        linearly-decreasing shades of cyan-magenta
       copper      sequential increasing shades of black-copper
@@ -2128,7 +2135,7 @@ def colormaps():
                     Language software
       ============  =======================================================
 
-    A set of cyclic color maps:
+    A set of cyclic colormaps:
 
       ================  =================================================
       Colormap          Description
@@ -2624,12 +2631,6 @@ def broken_barh(xranges, yrange, *, data=None, **kwargs):
 
 
 # Autogenerated by boilerplate.py.  Do not edit as changes will be lost.
-@_copy_docstring_and_deprecators(Axes.cla)
-def cla():
-    return gca().cla()
-
-
-# Autogenerated by boilerplate.py.  Do not edit as changes will be lost.
 @_copy_docstring_and_deprecators(Axes.clabel)
 def clabel(CS, levels=None, **kwargs):
     return gca().clabel(CS, levels=levels, **kwargs)
@@ -2982,14 +2983,12 @@ def quiverkey(Q, X, Y, U, label, **kw):
 @_copy_docstring_and_deprecators(Axes.scatter)
 def scatter(
         x, y, s=None, c=None, marker=None, cmap=None, norm=None,
-        vmin=None, vmax=None, alpha=None, linewidths=None,
-        verts=cbook.deprecation._deprecated_parameter,
-        edgecolors=None, *, plotnonfinite=False, data=None, **kwargs):
+        vmin=None, vmax=None, alpha=None, linewidths=None, *,
+        edgecolors=None, plotnonfinite=False, data=None, **kwargs):
     __ret = gca().scatter(
         x, y, s=s, c=c, marker=marker, cmap=cmap, norm=norm,
         vmin=vmin, vmax=vmax, alpha=alpha, linewidths=linewidths,
-        verts=verts, edgecolors=edgecolors,
-        plotnonfinite=plotnonfinite,
+        edgecolors=edgecolors, plotnonfinite=plotnonfinite,
         **({"data": data} if data is not None else {}), **kwargs)
     sci(__ret)
     return __ret

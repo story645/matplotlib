@@ -10,7 +10,7 @@ and for mapping numbers to colors in a 1-D array of colors called a colormap.
 Mapping data onto colors using a colormap typically involves two steps: a data
 array is first mapped onto the range 0-1 using a subclass of `Normalize`,
 then this number is mapped to a color using a subclass of `Colormap`.  Two
-sublasses of `Colormap` provided here:  `LinearSegmentedColormap`, which uses
+subclasses of `Colormap` provided here:  `LinearSegmentedColormap`, which uses
 piecewise-linear interpolation to define colormaps, and `ListedColormap`, which
 makes a colormap from a list of colors.
 
@@ -67,6 +67,7 @@ Matplotlib recognizes the following formats to specify a color:
 
 import base64
 from collections.abc import Sized
+import copy
 import functools
 import inspect
 import io
@@ -415,7 +416,7 @@ colorConverter = ColorConverter()
 
 def _create_lookup_table(N, data, gamma=1.0):
     r"""
-    Create an *N* -element 1-d lookup table.
+    Create an *N* -element 1D lookup table.
 
     This assumes a mapping :math:`f : [0, 1] \rightarrow [0, 1]`. The returned
     data is an array of N values :math:`y = f(x)` where x is sampled from
@@ -652,7 +653,7 @@ class Colormap:
         """Get the color for masked values."""
         if not self._isinit:
             self._init()
-        return self._lut[self._i_bad]
+        return np.array(self._lut[self._i_bad])
 
     def set_bad(self, color='k', alpha=None):
         """Set the color for masked values."""
@@ -665,7 +666,7 @@ class Colormap:
         """Get the color for low out-of-range values."""
         if not self._isinit:
             self._init()
-        return self._lut[self._i_under]
+        return np.array(self._lut[self._i_under])
 
     def set_under(self, color='k', alpha=None):
         """Set the color for low out-of-range values."""
@@ -678,7 +679,7 @@ class Colormap:
         """Get the color for high out-of-range values."""
         if not self._isinit:
             self._init()
-        return self._lut[self._i_over]
+        return np.array(self._lut[self._i_over])
 
     def set_over(self, color='k', alpha=None):
         """Set the color for high out-of-range values."""
@@ -686,6 +687,28 @@ class Colormap:
         self._rgba_over = to_rgba(color, alpha)
         if self._isinit:
             self._set_extremes()
+
+    def set_extremes(self, *, bad=None, under=None, over=None):
+        """
+        Set the colors for masked (*bad*) values and, when ``norm.clip =
+        False``, low (*under*) and high (*over*) out-of-range values.
+        """
+        if bad is not None:
+            self.set_bad(bad)
+        if under is not None:
+            self.set_under(under)
+        if over is not None:
+            self.set_over(over)
+
+    def with_extremes(self, *, bad=None, under=None, over=None):
+        """
+        Return a copy of the colormap, for which the colors for masked (*bad*)
+        values and, when ``norm.clip = False``, low (*under*) and high (*over*)
+        out-of-range values, have been set accordingly.
+        """
+        new_cm = copy.copy(self)
+        new_cm.set_extremes(bad=bad, under=under, over=over)
+        return new_cm
 
     def _set_extremes(self):
         if self._rgba_under:
@@ -703,14 +726,14 @@ class Colormap:
         raise NotImplementedError("Abstract class only")
 
     def is_gray(self):
-        """Return whether the color map is grayscale."""
+        """Return whether the colormap is grayscale."""
         if not self._isinit:
             self._init()
         return (np.all(self._lut[:, 0] == self._lut[:, 1]) and
                 np.all(self._lut[:, 0] == self._lut[:, 2]))
 
     def _resample(self, lutsize):
-        """Return a new color map with *lutsize* entries."""
+        """Return a new colormap with *lutsize* entries."""
         raise NotImplementedError()
 
     def reversed(self, name=None):
@@ -738,7 +761,7 @@ class Colormap:
                     (_REPR_PNG_SIZE[1], 1))
         pixels = self(X, bytes=True)
         png_bytes = io.BytesIO()
-        title = self.name + ' color map'
+        title = self.name + ' colormap'
         author = f'Matplotlib v{mpl.__version__}, https://matplotlib.org'
         pnginfo = PngInfo()
         pnginfo.add_text('Title', title)
@@ -766,7 +789,7 @@ class Colormap:
                 f'<strong>{self.name}</strong> '
                 '</div>'
                 '<div class="cmap"><img '
-                f'alt="{self.name} color map" '
+                f'alt="{self.name} colormap" '
                 f'title="{self.name}" '
                 'style="border: 1px solid #555;" '
                 f'src="data:image/png;base64,{png_base64}"></div>'
@@ -795,7 +818,7 @@ class LinearSegmentedColormap(Colormap):
 
     def __init__(self, name, segmentdata, N=256, gamma=1.0):
         """
-        Create color map from linear mapping segments
+        Create colormap from linear mapping segments
 
         segmentdata argument is a dictionary with a red, green and blue
         entries. Each entry should be a list of *x*, *y0*, *y1* tuples,
@@ -858,7 +881,7 @@ class LinearSegmentedColormap(Colormap):
         self._set_extremes()
 
     def set_gamma(self, gamma):
-        """Set a new gamma value and regenerate color map."""
+        """Set a new gamma value and regenerate colormap."""
         self._gamma = gamma
         self._init()
 
@@ -902,7 +925,7 @@ class LinearSegmentedColormap(Colormap):
         return LinearSegmentedColormap(name, cdict, N, gamma)
 
     def _resample(self, lutsize):
-        """Return a new color map with *lutsize* entries."""
+        """Return a new colormap with *lutsize* entries."""
         new_cmap = LinearSegmentedColormap(self.name, self._segmentdata,
                                            lutsize)
         new_cmap._rgba_over = self._rgba_over
@@ -1006,7 +1029,7 @@ class ListedColormap(Colormap):
         self._set_extremes()
 
     def _resample(self, lutsize):
-        """Return a new color map with *lutsize* entries."""
+        """Return a new colormap with *lutsize* entries."""
         colors = self(np.linspace(0, 1, lutsize))
         new_cmap = ListedColormap(colors, name=self.name)
         # Keep the over/under values too
@@ -1073,6 +1096,7 @@ class Normalize:
         self.vmin = _sanitize_extrema(vmin)
         self.vmax = _sanitize_extrema(vmax)
         self.clip = clip
+        self._scale = scale.LinearScale(axis=None)
 
     @staticmethod
     def process_value(value):
@@ -1255,6 +1279,101 @@ class TwoSlopeNorm(Normalize):
         return result
 
 
+class CenteredNorm(Normalize):
+    def __init__(self, vcenter=0, halfrange=None, clip=False):
+        """
+        Normalize symmetrical data around a center (0 by default).
+
+        Unlike `TwoSlopeNorm`, `CenteredNorm` applies an equal rate of change
+        around the center.
+
+        Useful when mapping symmetrical data around a conceptual center
+        e.g., data that range from -2 to 4, with 0 as the midpoint, and
+        with equal rates of change around that midpoint.
+
+        Parameters
+        ----------
+        vcenter : float, default: 0
+            The data value that defines ``0.5`` in the normalization.
+        halfrange : float, optional
+            The range of data values that defines a range of ``0.5`` in the
+            normalization, so that *vcenter* - *halfrange* is ``0.0`` and
+            *vcenter* + *halfrange* is ``1.0`` in the normalization.
+            Defaults to the largest absolute difference to *vcenter* for
+            the values in the dataset.
+
+        Examples
+        --------
+        This maps data values -2 to 0.25, 0 to 0.5, and 4 to 1.0
+        (assuming equal rates of change above and below 0.0):
+
+            >>> import matplotlib.colors as mcolors
+            >>> norm = mcolors.CenteredNorm(halfrange=4.0)
+            >>> data = [-2., 0., 4.]
+            >>> norm(data)
+            array([0.25, 0.5 , 1.  ])
+        """
+        self._vcenter = vcenter
+        # calling the halfrange setter to set vmin and vmax
+        self.halfrange = halfrange
+        self.clip = clip
+
+    def _set_vmin_vmax(self):
+        """
+        Set *vmin* and *vmax* based on *vcenter* and *halfrange*.
+        """
+        self.vmax = self._vcenter + self._halfrange
+        self.vmin = self._vcenter - self._halfrange
+
+    def autoscale(self, A):
+        """
+        Set *halfrange* to ``max(abs(A-vcenter))``, then set *vmin* and *vmax*.
+        """
+        A = np.asanyarray(A)
+        self._halfrange = max(self._vcenter-A.min(),
+                              A.max()-self._vcenter)
+        self._set_vmin_vmax()
+
+    def autoscale_None(self, A):
+        """Set *vmin* and *vmax*."""
+        A = np.asanyarray(A)
+        if self.vmax is None and A.size:
+            self.autoscale(A)
+
+    @property
+    def vcenter(self):
+        return self._vcenter
+
+    @vcenter.setter
+    def vcenter(self, vcenter):
+        self._vcenter = vcenter
+        if self.vmax is not None:
+            # recompute halfrange assuming vmin and vmax represent
+            # min and max of data
+            self._halfrange = max(self._vcenter-self.vmin,
+                                  self.vmax-self._vcenter)
+            self._set_vmin_vmax()
+
+    @property
+    def halfrange(self):
+        return self._halfrange
+
+    @halfrange.setter
+    def halfrange(self, halfrange):
+        if halfrange is None:
+            self._halfrange = None
+            self.vmin = None
+            self.vmax = None
+        else:
+            self._halfrange = abs(halfrange)
+
+    def __call__(self, value, clip=None):
+        if self._halfrange is not None:
+            # enforce symmetry, reset vmin and vmax
+            self._set_vmin_vmax()
+        return super().__call__(value, clip=clip)
+
+
 def _make_norm_from_scale(scale_cls, base_norm_cls=None, *, init=None):
     """
     Decorator for building a `.Normalize` subclass from a `.Scale` subclass.
@@ -1262,16 +1381,27 @@ def _make_norm_from_scale(scale_cls, base_norm_cls=None, *, init=None):
     After ::
 
         @_make_norm_from_scale(scale_cls)
-        class base_norm_cls(Normalize):
+        class norm_cls(Normalize):
             ...
 
-    *base_norm_cls* is filled with methods so that normalization computations
-    are forwarded to *scale_cls* (i.e., *scale_cls* is the scale that would be
-    used for the colorbar of a mappable normalized with *base_norm_cls*).
+    *norm_cls* is filled with methods so that normalization computations are
+    forwarded to *scale_cls* (i.e., *scale_cls* is the scale that would be used
+    for the colorbar of a mappable normalized with *norm_cls*).
 
-    The constructor signature of *base_norm_cls* is derived from the
-    constructor signature of *scale_cls*, but can be overridden using *init*
-    (a callable which is *only* used for its signature).
+    If *init* is not passed, then the constructor signature of *norm_cls*
+    will be ``norm_cls(vmin=None, vmax=None, clip=False)``; these three
+    parameters will be forwarded to the base class (``Normalize.__init__``),
+    and a *scale_cls* object will be initialized with no arguments (other than
+    a dummy axis).
+
+    If the *scale_cls* constructor takes additional parameters, then *init*
+    should be passed to `_make_norm_from_scale`.  It is a callable which is
+    *only* used for its signature.  First, this signature will become the
+    signature of *norm_cls*.  Second, the *norm_cls* constructor will bind the
+    parameters passed to it using this signature, extract the bound *vmin*,
+    *vmax*, and *clip* values, pass those to ``Normalize.__init__``, and
+    forward the remaining bound values (including any defaults defined by the
+    signature) to the *scale_cls* constructor.
     """
 
     if base_norm_cls is None:
@@ -1279,12 +1409,12 @@ def _make_norm_from_scale(scale_cls, base_norm_cls=None, *, init=None):
 
     if init is None:
         def init(vmin=None, vmax=None, clip=False): pass
-    init_signature = inspect.signature(init)
+    bound_init_signature = inspect.signature(init)
 
     class Norm(base_norm_cls):
 
         def __init__(self, *args, **kwargs):
-            ba = init_signature.bind(*args, **kwargs)
+            ba = bound_init_signature.bind(*args, **kwargs)
             ba.apply_defaults()
             super().__init__(
                 **{k: ba.arguments.pop(k) for k in ["vmin", "vmax", "clip"]})
@@ -1329,6 +1459,9 @@ def _make_norm_from_scale(scale_cls, base_norm_cls=None, *, init=None):
     Norm.__name__ = base_norm_cls.__name__
     Norm.__qualname__ = base_norm_cls.__qualname__
     Norm.__module__ = base_norm_cls.__module__
+    Norm.__init__.__signature__ = bound_init_signature.replace(parameters=[
+        inspect.Parameter("self", inspect.Parameter.POSITIONAL_OR_KEYWORD),
+        *bound_init_signature.parameters.values()])
     return Norm
 
 
@@ -1496,6 +1629,8 @@ class BoundaryNorm(Normalize):
                              f"(1 region) but you passed in {boundaries!r}")
         self.Ncmap = ncolors
         self.extend = extend
+
+        self._scale = None  # don't use the default scale.
 
         self._n_regions = self.N - 1  # number of colors needed
         self._offset = 0
@@ -1781,7 +1916,7 @@ class LightSource:
         Parameters
         ----------
         elevation : array-like
-            A 2d array (or equivalent) of the height values used to generate an
+            A 2D array (or equivalent) of the height values used to generate an
             illumination map
         vert_exag : number, optional
             The amount to exaggerate the elevation values by when calculating
@@ -1803,7 +1938,7 @@ class LightSource:
         Returns
         -------
         ndarray
-            A 2d array of illumination values between 0-1, where 0 is
+            A 2D array of illumination values between 0-1, where 0 is
             completely in shadow and 1 is completely illuminated.
         """
 
@@ -1846,7 +1981,7 @@ class LightSource:
         Returns
         -------
         ndarray
-            A 2d array of illumination values between 0-1, where 0 is
+            A 2D array of illumination values between 0-1, where 0 is
             completely in shadow and 1 is completely illuminated.
         """
 
@@ -1879,7 +2014,7 @@ class LightSource:
         Parameters
         ----------
         data : array-like
-            A 2d array (or equivalent) of the height values used to generate a
+            A 2D array (or equivalent) of the height values used to generate a
             shaded map.
         cmap : `~matplotlib.colors.Colormap`
             The colormap used to color the *data* array. Note that this must be
