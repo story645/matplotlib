@@ -256,6 +256,29 @@ cmap2 = LinearSegmentedColormap.from_list("mycmap", list(zip(nodes, colors)))
 plot_examples([cmap1, cmap2])
 
 #############################################################################
+# .. _reversing-colormap:
+#
+# Reversing a colormap
+# ====================
+#
+# Any colormap that is a registered as a matplotlib `.Colormap` can be reversed
+# using the ``reversed`` method of the colormap object. For example:
+
+colors = ["#ffffcc", "#a1dab4", "#41b6c4", "#2c7fb8", "#253494"]
+my_cmap = ListedColormap(colors, name="my_cmap")
+# register
+mpl.colormaps.register(cmap=my_cmap)
+# reverse custom colormap
+mpl.colormaps.register(cmap=my_cmap.reversed())
+
+plot_examples(['my_cmap', 'my_cmap_r'])
+
+# %%
+# This method generates a new colormap by reversing the order of colors in the
+# source colormap. It also creates a name for the reversed map by appending
+# ``_r`` to the source colormap's name.
+
+#############################################################################
 #
 # .. admonition:: References
 #
