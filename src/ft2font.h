@@ -144,6 +144,7 @@ class FT2Font
     FT_Vector pen;    /* untransformed origin  */
     std::vector<FT_Glyph> glyphs;
     std::vector<FT2Font *> fallbacks;
+    std::vector<FT_String *> family_names;
     std::unordered_map<FT_UInt, FT2Font *> glyph_to_font;
     std::unordered_map<long, FT2Font *> char_to_font;
     FT_BBox bbox;

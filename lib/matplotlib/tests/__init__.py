@@ -1,5 +1,7 @@
 from pathlib import Path
+import pytest
 
+pytest.register_assert_rewrite("matplotlib.testing")
 
 # Check that the test directories exist.
 if not (Path(__file__).parent / 'baseline_images').exists():

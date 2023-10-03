@@ -78,6 +78,17 @@ def test_font_fallback_chinese(fig_test, fig_ref, family_name, file_name):
         fig_test.text(0.05, .85 - 0.15*j, txt, family=test_font)
 
 
+def test_fallback_cascade_missing(recwarn):
+    font_list = ['DejaVu Serif', 'DejaVu Sans']
+    fig = plt.figure()
+    fig.text(.5, .5, "Hello 🙃 World!", family=font_list)
+    fig.canvas.draw()
+    assert all(isinstance(warn.message, UserWarning) for warn in recwarn)
+    e = "Glyph 128579 (\\N{{UPSIDE-DOWN FACE}}) missing from current font {}."
+    assert ([(warn.message.args) for warn in recwarn] ==
+            [(e.format(font),) for font in font_list])
+
+
 @pytest.mark.parametrize(
     "family_name, file_name",
     [

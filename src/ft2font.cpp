@@ -184,11 +184,13 @@ FT2Image::draw_rect_filled(unsigned long x0, unsigned long y0, unsigned long x1,
     m_dirty = true;
 }
 
-static void ft_glyph_warn(FT_ULong charcode)
+static void ft_glyph_warn(FT_ULong charcode, FT_String *family_name)
 {
+    const char* name = (family_name != NULL)?family_name:"UNAVAILABLE";
     PyObject *text_helpers = NULL, *tmp = NULL;
+
     if (!(text_helpers = PyImport_ImportModule("matplotlib._text_helpers")) ||
-        !(tmp = PyObject_CallMethod(text_helpers, "warn_on_missing_glyph", "k", charcode))) {
+        !(tmp = PyObject_CallMethod(text_helpers, "warn_on_missing_glyph", "(k, s)", charcode, name))) {
         goto exit;
     }
 exit:
@@ -207,7 +209,7 @@ ft_get_char_index_or_warn(FT_Face face, FT_ULong charcode, bool warn = true)
         return glyph_index;
     }
     if (warn) {
-        ft_glyph_warn(charcode);
+        ft_glyph_warn(charcode, face->family_name);
     }
     return 0;
 }
@@ -515,8 +517,6 @@ void FT2Font::set_text(
                                                  char_to_font, glyph_to_font, codepoints[n], flags,
                                                  charcode_error, glyph_error, false);
         if (!was_found) {
-            ft_glyph_warn((FT_ULong)codepoints[n]);
-
             // render missing glyph tofu
             // come back to top-most font
             ft_object_with_glyph = this;
@@ -582,7 +582,6 @@ void FT2Font::load_char(long charcode, FT_Int32 flags, FT2Font *&ft_object, bool
         bool was_found = load_char_with_fallback(ft_object_with_glyph, final_glyph_index, glyphs, char_to_font,
                                 glyph_to_font, charcode, flags, charcode_error, glyph_error, true);
         if (!was_found) {
-            ft_glyph_warn(charcode);
             if (charcode_error) {
                 throw_ft_error("Could not load charcode", charcode_error);
             }
@@ -609,7 +608,7 @@ void FT2Font::load_char(long charcode, FT_Int32 flags, FT2Font *&ft_object, bool
 
 bool FT2Font::get_char_fallback_index(FT_ULong charcode, int& index) const
 {
-    FT_UInt glyph_index = FT_Get_Char_Index(face, charcode);
+    FT_UInt glyph_index = ft_get_char_index_or_warn(face, charcode);
     if (glyph_index) {
         // -1 means the host has the char and we do not need to fallback
         index = -1;
@@ -642,17 +641,15 @@ bool FT2Font::load_char_with_fallback(FT2Font *&ft_object_with_glyph,
                                       FT_Error &glyph_error,
                                       bool override = false)
 {
-    FT_UInt glyph_index = FT_Get_Char_Index(face, charcode);
-
+    FT_UInt glyph_index = ft_get_char_index_or_warn(face, charcode, false);
+    family_names.push_back(face->family_name);
     if (glyph_index || override) {
-        charcode_error = FT_Load_Glyph(face, glyph_index, flags);
-        if (charcode_error) {
+        if ((charcode_error=FT_Load_Glyph(face, glyph_index, flags))) {
             return false;
         }
 
         FT_Glyph thisGlyph;
-        glyph_error = FT_Get_Glyph(face->glyph, &thisGlyph);
-        if (glyph_error) {
+        if ((glyph_error= FT_Get_Glyph(face->glyph, &thisGlyph))){
             return false;
         }
 
@@ -667,7 +664,6 @@ bool FT2Font::load_char_with_fallback(FT2Font *&ft_object_with_glyph,
         parent_glyphs.push_back(thisGlyph);
         return true;
     }
-
     else {
         for (size_t i = 0; i < fallbacks.size(); ++i) {
             bool was_found = fallbacks[i]->load_char_with_fallback(
@@ -676,6 +672,9 @@ bool FT2Font::load_char_with_fallback(FT2Font *&ft_object_with_glyph,
             if (was_found) {
                 return true;
             }
+        }
+        for (size_t j=family_names.size()-1; j>0; --j){
+            ft_glyph_warn(charcode, family_names[j]);
         }
         return false;
     }
