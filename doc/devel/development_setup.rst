@@ -37,7 +37,7 @@ documentation <https://docs.github.com/get-started/quickstart/fork-a-repo>`__ fo
 Retrieve the latest version of the code
 =======================================
 
-Now that your fork of the repository lives under your GitHub username, you can
+Now that your fork (:octicon:`repo-forked`) of the repository lives under your GitHub username, you can
 retrieve the most recent version of the source code with one of the following
 commands (replace ``<your-username>`` with your GitHub username):
 
@@ -176,9 +176,6 @@ setup.
          environment called ``mpl-dev``::
 
          conda activate mpl-dev
-
-      Remember to activate the *mpl-dev* environment whenever you start working on
-      Matplotlib.
 
       If you need to open a GUI window with Matplotlib output on Codespaces, our
       configuration includes a `light-weight Fluxbox-based desktop
