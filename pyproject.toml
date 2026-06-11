@@ -111,7 +111,7 @@ doc = [
     "ipywidgets",
     "ipykernel",
     "numpydoc>=1.0",
-    "mpl-sphinx-theme~=3.10.0",
+    "mpl-sphinx-theme>=3.10,<3.12",
     "pyyaml",
     "PyStemmer",
     "sphinxcontrib-svg2pdfconverter>=1.1.0",
