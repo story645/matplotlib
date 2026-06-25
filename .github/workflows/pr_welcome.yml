@@ -16,7 +16,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: plbstl/first-contribution@7c31f41b0e7a70adfcae06cf964679f61af6780b  # v4.3.0
+      - uses: plbstl/first-contribution@2c36bdb58684587f60549a69aaa3ec00b9d5f4fe  # v4.3.3
         with:
           labels: first-contribution
           pr-opened-msg: >+
